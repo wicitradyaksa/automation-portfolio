@@ -1,0 +1,525 @@
+{
+  "name": "Lead Intake & CRM Sync",
+  "nodes": [
+    {
+      "id": "3d44e12a-54cc-4fc4-bab3-9c69f6d95ff1",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -320
+      ],
+      "parameters": {
+        "content": "## Multi-Channel Lead Intake & CRM Sync\\nAccepts leads from any web form/ad landing page, validates + dedupes them against a lightweight Google-Sheets CRM, alerts sales in Slack, and auto-replies to the prospect \u2014 all in under a second.",
+        "height": 220,
+        "width": 420,
+        "color": 4
+      }
+    },
+    {
+      "id": "3290de59-998b-4c39-a166-bb8e6c4e57d2",
+      "name": "Lead Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "aba4485c-19f9-487e-a1f8-14a114f150d5",
+      "name": "Normalize & Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        180,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Normalize incoming payload from any source (site form, ad landing page, partner API)\n// into one lead shape, and flag basic validation problems.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst email = (body.email || '').trim().toLowerCase();\nconst emailValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n\nreturn [{\n  json: {\n    firstName: (body.firstName || body.first_name || '').trim(),\n    lastName: (body.lastName || body.last_name || '').trim(),\n    email,\n    company: (body.company || '').trim(),\n    source: body.source || 'website_form',\n    submittedAt: new Date().toISOString(),\n    valid: emailValid\n  }\n}];"
+      }
+    },
+    {
+      "id": "79359694-5693-43ab-85b0-fcffcf0c2697",
+      "name": "Valid Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "5266c5bb-a979-4961-8a15-1aab92222a08",
+      "name": "Check For Duplicate",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -90
+      ],
+      "parameters": {
+        "operation": "lookup",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "email",
+              "lookupValue": "={{$json.email}}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred",
+          "name": "Google Sheets - CRM (demo)"
+        }
+      }
+    },
+    {
+      "id": "bc58ddd7-9431-4bba-a8d7-60a3b4bcae88",
+      "name": "Already In CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        840,
+        -90
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.email}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "10135588-f8ba-4e20-a1db-75fba254752e",
+      "name": "Update Existing Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -160
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{$json.email}}",
+            "lastTouchedAt": "={{$now.toISO()}}",
+            "touchCount": "={{$json.touchCount + 1}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred",
+          "name": "Google Sheets - CRM (demo)"
+        }
+      }
+    },
+    {
+      "id": "4b9fba5b-3f77-4a03-bfe4-f5d99d8919a0",
+      "name": "Create New CRM Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -20
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "firstName": "={{$json.firstName}}",
+            "lastName": "={{$json.lastName}}",
+            "email": "={{$json.email}}",
+            "company": "={{$json.company}}",
+            "source": "={{$json.source}}",
+            "createdAt": "={{$json.submittedAt}}",
+            "status": "new",
+            "touchCount": 1
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred",
+          "name": "Google Sheets - CRM (demo)"
+        }
+      }
+    },
+    {
+      "id": "fd35b330-9db4-4611-878c-6a9b2f526db4",
+      "name": "Notify Sales (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -60
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales-alerts",
+          "mode": "name"
+        },
+        "text": "=:rotating_light: New lead: *{{$json.firstName}} {{$json.lastName}}* ({{$json.company}}) via {{$json.source}}\\nEmail: {{$json.email}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred",
+          "name": "Slack - Sales Workspace (demo)"
+        }
+      }
+    },
+    {
+      "id": "6ddfd347-9fec-4bff-bad3-5789b62870cd",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -60
+      ],
+      "parameters": {
+        "fromEmail": "hello@yourcompany.com",
+        "toEmail": "={{$json.email}}",
+        "subject": "Thanks for reaching out, {{$json.firstName}}!",
+        "text": "Hi {{$json.firstName}},\\n\\nThanks for your interest \u2014 a member of our team will follow up within one business day.\\n\\nBest,\\nThe Team"
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp_cred",
+          "name": "Transactional SMTP (demo)"
+        }
+      }
+    },
+    {
+      "id": "cfca7d5a-f235-4d02-bc89-d26ffd422c03",
+      "name": "Respond 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        -60
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"received\" } }}"
+      }
+    },
+    {
+      "id": "34affc1c-9b2a-43e5-ba94-41f18de720db",
+      "name": "Log Invalid Submission",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        620,
+        120
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Rejected Submissions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "raw": "={{JSON.stringify($json)}}",
+            "reason": "invalid_email",
+            "receivedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred",
+          "name": "Google Sheets - CRM (demo)"
+        }
+      }
+    },
+    {
+      "id": "98888970-e6ab-44cf-8ea3-60937e72593e",
+      "name": "Respond 400 Bad Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        840,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ { \"status\": \"rejected\", \"reason\": \"invalid_email\" } }}"
+      }
+    },
+    {
+      "id": "007fc675-8f40-401c-b912-b16004b7e2c1",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        400,
+        260
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "b3aee0b3-19ed-4254-ac60-19858b48f6dd",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        640,
+        260
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: Lead Intake workflow failed: {{$json.execution.error.message}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred",
+          "name": "Slack - Sales Workspace (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lead Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Validate": {
+      "main": [
+        [
+          {
+            "node": "Valid Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Lead?": {
+      "main": [
+        [
+          {
+            "node": "Check For Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Invalid Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Invalid Submission": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 Bad Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check For Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Already In CRM?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already In CRM?": {
+      "main": [
+        [
+          {
+            "node": "Update Existing Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New CRM Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Existing Row": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New CRM Row": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Sales (Slack)": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Respond 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}

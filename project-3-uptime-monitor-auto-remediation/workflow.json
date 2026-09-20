@@ -1,0 +1,526 @@
+{
+  "name": "Uptime Monitor & Auto-Remediation",
+  "nodes": [
+    {
+      "id": "128756e8-b59c-4cc0-9b75-6e2d7aa2bea7",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -320
+      ],
+      "parameters": {
+        "content": "## Self-Hosted Uptime Monitor & Auto-Remediation\\nPolls each service's health endpoint every 5 minutes. On failure it tries a self-heal first (`docker restart`) before waking a human \u2014 only escalating to on-call in Slack if the restart didn't fix it. Every check and every incident is logged for a later postmortem / MTTR report.",
+        "height": 240,
+        "width": 460,
+        "color": 6
+      }
+    },
+    {
+      "id": "603802b7-42a2-4d23-bdfd-ae7258f0a7e1",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7a6a7406-beb1-4a1c-a46d-3f0f4eac5002",
+      "name": "Set Target Services",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// One row per monitored service. Add/remove services here \u2014 no other node needs editing.\nreturn [\n  { json: { service: 'api-gateway', url: 'http://api-gateway:8080/health', container: 'api-gateway' } },\n  { json: { service: 'worker-queue', url: 'http://worker-queue:8081/health', container: 'worker-queue' } },\n  { json: { service: 'public-website', url: 'https://example.com/health', container: 'website' } }\n];"
+      }
+    },
+    {
+      "id": "2e0ed3b2-de7c-4e3b-8869-cc74aacf3635",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        380,
+        0
+      ],
+      "parameters": {
+        "url": "={{$json.url}}",
+        "method": "GET",
+        "options": {
+          "timeout": 5000
+        },
+        "onError": "continueRegularOutput"
+      }
+    },
+    {
+      "id": "a70d30d3-3b71-4dba-9ffc-3e9af810342e",
+      "name": "Is Unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "id": "36fcca78-4807-4b12-b417-741426771ed4",
+      "name": "Log Heartbeat (OK)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        820,
+        90
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Uptime Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "service": "={{$json.service}}",
+            "status": "up",
+            "checkedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred3",
+          "name": "Google Sheets - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "f1a7f711-ad44-4867-9dee-ebf3de4955ea",
+      "name": "Restart Container",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        820,
+        -80
+      ],
+      "parameters": {
+        "command": "=docker restart {{$json.container}}"
+      }
+    },
+    {
+      "id": "5e8711d7-bd87-4c62-bdbd-0ad7d15a9852",
+      "name": "Wait 30s For Recovery",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -80
+      ],
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "cc0118dc-0694-450d-a3de-4cfad0741bfb",
+      "name": "Re-Check Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        -80
+      ],
+      "parameters": {
+        "url": "={{$json.url}}",
+        "method": "GET",
+        "options": {
+          "timeout": 5000
+        },
+        "onError": "continueRegularOutput"
+      }
+    },
+    {
+      "id": "339f3f9a-3657-4601-8565-9aa26bf1aa91",
+      "name": "Still Down After Restart?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "id": "50d1ce54-9895-4b90-a66f-129210f58720",
+      "name": "Escalate To On-Call",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        -160
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#incidents",
+          "mode": "name"
+        },
+        "text": "=:rotating_light::rotating_light: *{{$json.service}}* is still down after an automatic restart \u2014 paging on-call. <!subteam^ONCALL>"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred3",
+          "name": "Slack - Ops Workspace (demo)"
+        }
+      }
+    },
+    {
+      "id": "fb99ea03-662c-4c93-b02d-0ae672091387",
+      "name": "Log Incident",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        -20
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Incidents",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "service": "={{$json.service}}",
+            "outcome": "escalated",
+            "detectedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred3",
+          "name": "Google Sheets - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "bc8c4520-2258-46e1-a7fe-f089d477da1b",
+      "name": "Notify Self-Healed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        60
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#incidents",
+          "mode": "name"
+        },
+        "text": "=:white_check_mark: *{{$json.service}}* was down but recovered automatically after a container restart."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred3",
+          "name": "Slack - Ops Workspace (demo)"
+        }
+      }
+    },
+    {
+      "id": "450de08f-958f-45c6-875a-f6a68831097a",
+      "name": "Log Self-Heal",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        140
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Incidents",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "service": "={{$json.service}}",
+            "outcome": "self_healed",
+            "detectedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred3",
+          "name": "Google Sheets - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "3b95f786-a9c3-408f-8994-e878a5e8e11a",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        260
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "72e3f91a-f913-4753-ae6c-72417985bb52",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        160,
+        260
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: Uptime Monitor workflow itself failed: {{$json.execution.error.message}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred3",
+          "name": "Slack - Ops Workspace (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Set Target Services",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Target Services": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check": {
+      "main": [
+        [
+          {
+            "node": "Is Unhealthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Unhealthy?": {
+      "main": [
+        [
+          {
+            "node": "Restart Container",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Heartbeat (OK)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restart Container": {
+      "main": [
+        [
+          {
+            "node": "Wait 30s For Recovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s For Recovery": {
+      "main": [
+        [
+          {
+            "node": "Re-Check Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-Check Health": {
+      "main": [
+        [
+          {
+            "node": "Still Down After Restart?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Down After Restart?": {
+      "main": [
+        [
+          {
+            "node": "Escalate To On-Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Self-Healed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate To On-Call": {
+      "main": [
+        [
+          {
+            "node": "Log Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Self-Healed": {
+      "main": [
+        [
+          {
+            "node": "Log Self-Heal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}

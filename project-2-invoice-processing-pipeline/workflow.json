@@ -1,0 +1,509 @@
+{
+  "name": "Invoice Intake & Validation Pipeline",
+  "nodes": [
+    {
+      "id": "bb01fa7a-6bcc-4651-b076-9424f50349c5",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -320
+      ],
+      "parameters": {
+        "content": "## Automated Invoice Intake & Validation Pipeline\\nWatches the AP inbox, pulls the PDF text out of each invoice, parses the key fields, routes anything over $1,000 to a manager for approval in Slack, and flags anything it couldn't confidently parse for manual review \u2014 instead of a human opening every attachment.",
+        "height": 240,
+        "width": 440,
+        "color": 5
+      }
+    },
+    {
+      "id": "93640622-ec94-4bdf-a449-129ba245f361",
+      "name": "Watch Invoices Inbox",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        0
+      ],
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "options": {}
+      },
+      "credentials": {
+        "imap": {
+          "id": "imap_cred",
+          "name": "Accounts Payable Inbox (demo)"
+        }
+      }
+    },
+    {
+      "id": "e3a914ef-63fa-44c5-a6b5-1231bd39f193",
+      "name": "Has PDF Attachment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{Object.keys($binary || {}).length}}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "6de8b17f-0bb9-4bb8-aa76-2e875d45d2b8",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        420,
+        -70
+      ],
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0"
+      }
+    },
+    {
+      "id": "dd267781-5097-466e-b873-35d08052d376",
+      "name": "Parse Invoice Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        640,
+        -70
+      ],
+      "parameters": {
+        "jsCode": "// Very small rules-based parser: pulls invoice number, vendor, amount, due date\n// out of the extracted PDF text using regex. Swap for an LLM/OCR call for messier PDFs.\nconst text = $input.first().json.text || '';\n\nconst invoiceNumber = (text.match(/invoice\\s*#?\\s*([A-Z0-9-]{4,})/i) || [])[1] || null;\nconst amountMatch = text.match(/total\\s*(?:due)?\\s*[:\\$]?\\s*([0-9,]+\\.\\d{2})/i);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;\nconst dueDateMatch = text.match(/due\\s*date\\s*[:\\-]?\\s*([0-9]{1,2}\\/[0-9]{1,2}\\/[0-9]{2,4})/i);\nconst vendorMatch = text.match(/^(.*?)\\n/);\n\nconst complete = Boolean(invoiceNumber && amount && dueDateMatch);\n\nreturn [{\n  json: {\n    invoiceNumber,\n    vendor: vendorMatch ? vendorMatch[1].trim() : 'Unknown',\n    amount,\n    dueDate: dueDateMatch ? dueDateMatch[1] : null,\n    complete,\n    receivedAt: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "1824825e-53fa-4b11-b7f8-86c73cb5c285",
+      "name": "Fields Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -70
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.complete}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "4b11080d-162b-4187-8497-a1a8281f4c84",
+      "name": "Needs Manager Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.amount}}",
+              "rightValue": 1000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e718ba0c-e2c4-4c36-9ade-2541c900735b",
+      "name": "Log To Approval Queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -220
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Pending Approval",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "invoiceNumber": "={{$json.invoiceNumber}}",
+            "vendor": "={{$json.vendor}}",
+            "amount": "={{$json.amount}}",
+            "dueDate": "={{$json.dueDate}}",
+            "status": "awaiting_approval"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred2",
+          "name": "Google Sheets - Finance (demo)"
+        }
+      }
+    },
+    {
+      "id": "3595dfad-a994-47fc-8608-8d36ee2816ba",
+      "name": "Alert Finance Manager",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -220
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#finance-approval",
+          "mode": "name"
+        },
+        "text": "=:heavy_dollar_sign: Invoice *{{$json.invoiceNumber}}* from {{$json.vendor}} for ${{$json.amount}} needs approval (due {{$json.dueDate}})."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred2",
+          "name": "Slack - Finance Workspace (demo)"
+        }
+      }
+    },
+    {
+      "id": "ba15eb52-ec9f-470f-bcf0-615fed99c23c",
+      "name": "Log To Approved Ledger",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -70
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Invoice Ledger",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "invoiceNumber": "={{$json.invoiceNumber}}",
+            "vendor": "={{$json.vendor}}",
+            "amount": "={{$json.amount}}",
+            "dueDate": "={{$json.dueDate}}",
+            "status": "auto_approved"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred2",
+          "name": "Google Sheets - Finance (demo)"
+        }
+      }
+    },
+    {
+      "id": "d5629bc0-e7e5-4cea-af65-3a79ad777132",
+      "name": "Log To Needs Review",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        860,
+        80
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Needs Review",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "vendorGuess": "={{$json.vendor}}",
+            "extractedText": "={{$json.text}}",
+            "reason": "incomplete_fields",
+            "receivedAt": "={{$json.receivedAt}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred2",
+          "name": "Google Sheets - Finance (demo)"
+        }
+      }
+    },
+    {
+      "id": "ca404cbb-6bce-44bc-9be9-8481c7bb5376",
+      "name": "Alert Finance Ops",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#finance-ops",
+          "mode": "name"
+        },
+        "text": "=:warning: Couldn't fully parse an incoming invoice \u2014 needs manual entry. Check the *Needs Review* sheet."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred2",
+          "name": "Slack - Finance Workspace (demo)"
+        }
+      }
+    },
+    {
+      "id": "9a1b6d16-4e25-4f8c-b587-af9800b2e7ff",
+      "name": "Log Non-Invoice Email",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        420,
+        130
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "d2bba8a5-7e39-4358-8389-625b9bba5ae3",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        260
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "726d8056-a66a-4467-82e5-d91fddaac26e",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        200,
+        260
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: Invoice Processing workflow failed: {{$json.execution.error.message}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred2",
+          "name": "Slack - Finance Workspace (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Watch Invoices Inbox": {
+      "main": [
+        [
+          {
+            "node": "Has PDF Attachment?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has PDF Attachment?": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Non-Invoice Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Parse Invoice Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Invoice Fields": {
+      "main": [
+        [
+          {
+            "node": "Fields Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fields Complete?": {
+      "main": [
+        [
+          {
+            "node": "Needs Manager Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log To Needs Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log To Needs Review": {
+      "main": [
+        [
+          {
+            "node": "Alert Finance Ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Manager Approval?": {
+      "main": [
+        [
+          {
+            "node": "Log To Approval Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log To Approved Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log To Approval Queue": {
+      "main": [
+        [
+          {
+            "node": "Alert Finance Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}
