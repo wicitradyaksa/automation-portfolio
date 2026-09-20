@@ -1,0 +1,806 @@
+{
+  "name": "VPS Ops & Nightly Data Pipeline",
+  "nodes": [
+    {
+      "id": "c42e73e8-f301-4228-b152-b53a4a4239f0",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -380
+      ],
+      "parameters": {
+        "content": "## VPS Ops & Nightly Data Pipeline\nThe unglamorous workflow that keeps a self-hosted stack alive. SSHes into an Ubuntu\nVPS, runs a Bash healthcheck that returns JSON, self-heals disk pressure before\npaging anyone, verifies the nightly backup actually contains bytes, then runs a\nPython ETL into Postgres and *asserts data quality afterwards* \u2014 row counts, null\nkeys, duplicates, and a volume-anomaly check against the trailing week. A bad load\ngets quarantined instead of silently poisoning every dashboard downstream.",
+        "height": 280,
+        "width": 580,
+        "color": 7
+      }
+    },
+    {
+      "id": "b766e2a8-93d5-4993-8c21-2302ea61c6d2",
+      "name": "Nightly 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0a15c7e7-978d-432f-b92e-705b5da6b21c",
+      "name": "Run VPS Healthcheck",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "resource": "command",
+        "command": "bash /opt/ops/vps_healthcheck.sh --json",
+        "cwd": "/opt/ops"
+      },
+      "credentials": {
+        "sshPassword": {
+          "id": "ssh_cred7",
+          "name": "Ubuntu VPS - ops user (demo)"
+        }
+      },
+      "notes": "Bash script returns a single JSON object: disk %, memory %, load,\nunhealthy containers, TLS cert days-to-expiry, failed systemd units."
+    },
+    {
+      "id": "4a974090-e814-4241-95f7-ee6b6e7e4b5a",
+      "name": "Parse Health JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Fail loudly if the script returned anything other than clean JSON \u2014 a silent\n// parse failure here would look identical to a healthy server.\nconst raw = ($input.first().json.stdout || '').trim();\nlet h;\ntry { h = JSON.parse(raw); }\ncatch (e) { throw new Error(`vps_healthcheck.sh returned non-JSON: ${raw.slice(0,300)}`); }\n\nconst DISK_WARN = 85, MEM_WARN = 90, CERT_WARN_DAYS = 14;\n\nconst alerts = [];\nif (h.disk_used_pct  > DISK_WARN)      alerts.push(`disk ${h.disk_used_pct}%`);\nif (h.mem_used_pct   > MEM_WARN)       alerts.push(`memory ${h.mem_used_pct}%`);\nif (h.cert_days_left < CERT_WARN_DAYS) alerts.push(`TLS cert expires in ${h.cert_days_left}d`);\nif ((h.unhealthy_containers||[]).length) alerts.push(`containers down: ${h.unhealthy_containers.join(', ')}`);\nif ((h.failed_units||[]).length)         alerts.push(`systemd failed: ${h.failed_units.join(', ')}`);\n\nreturn [{ json: { ...h,\n  alerts, healthy: alerts.length === 0,\n  diskPressure: h.disk_used_pct > DISK_WARN,\n  checkedAt: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "72f3d120-b600-4813-b75a-3ea41aa4b94d",
+      "name": "Disk Under Pressure?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        600,
+        -120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.diskPressure}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "c06b9ac6-d1f2-4fe3-b81e-6a2af7b4ba59",
+      "name": "Reclaim Disk Space",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        820,
+        -220
+      ],
+      "parameters": {
+        "resource": "command",
+        "command": "docker system prune -af --filter 'until=168h' && journalctl --vacuum-time=7d",
+        "cwd": "/opt/ops"
+      },
+      "credentials": {
+        "sshPassword": {
+          "id": "ssh_cred7",
+          "name": "Ubuntu VPS - ops user (demo)"
+        }
+      },
+      "notes": "Self-heal before paging anyone: drop images/containers older than a week\nand truncate the journal. Re-checked below \u2014 if it didn't help, a human hears about it."
+    },
+    {
+      "id": "35c5ca6b-97ab-4caf-a1d1-f298c563cb9b",
+      "name": "Backup Volumes",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        820,
+        0
+      ],
+      "parameters": {
+        "resource": "command",
+        "command": "bash /opt/ops/backup_volumes.sh --retain 7 --json",
+        "cwd": "/opt/ops"
+      },
+      "credentials": {
+        "sshPassword": {
+          "id": "ssh_cred7",
+          "name": "Ubuntu VPS - ops user (demo)"
+        }
+      }
+    },
+    {
+      "id": "26aaccce-705e-45a4-a693-230bab546b08",
+      "name": "Verify Backup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// A backup job that exits 0 but wrote a 200-byte tarball is not a backup.\nconst r = JSON.parse(($input.first().json.stdout || '{}').trim());\nconst MIN_BYTES = 1024 * 1024; // 1 MiB floor\n\nreturn [{ json: { ...r,\n  backupOk: Boolean(r.archive) && Number(r.bytes) > MIN_BYTES && r.checksum_verified === true,\n  verifiedAt: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "a6084d22-7495-4e21-b4c2-db48138ae13c",
+      "name": "Backup Good?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.backupOk}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "0b45ebb5-2f92-41fd-a625-7b7d2d136154",
+      "name": "Run ETL Load",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -80
+      ],
+      "parameters": {
+        "resource": "command",
+        "command": "python3 /opt/ops/etl_load.py --since-hours 24 --target postgres --json",
+        "cwd": "/opt/ops"
+      },
+      "credentials": {
+        "sshPassword": {
+          "id": "ssh_cred7",
+          "name": "Ubuntu VPS - ops user (demo)"
+        }
+      },
+      "notes": "Python ETL: reads yesterday's nginx access logs + the workflow execution\nexports, normalises them into a flat schema, and upserts into Postgres."
+    },
+    {
+      "id": "cba40734-d456-4001-9498-0e1303d9a28c",
+      "name": "Parse ETL Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "const r = JSON.parse(($input.first().json.stdout || '{}').trim());\nreturn [{ json: { ...r, loadedAt: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "6a584793-5a93-4e30-a191-8597df3ba70c",
+      "name": "Data Quality Checks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -80
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Three assertions that catch the failure modes an exit code 0 will not:\nSELECT\n  (SELECT count(*) FROM events WHERE loaded_at::date = CURRENT_DATE)      AS rows_today,\n  (SELECT count(*) FROM events WHERE loaded_at::date = CURRENT_DATE\n     AND (event_id IS NULL OR occurred_at IS NULL))                        AS null_keys,\n  (SELECT count(*) FROM (\n     SELECT event_id FROM events WHERE loaded_at::date = CURRENT_DATE\n     GROUP BY event_id HAVING count(*) > 1) d)                              AS duplicate_keys,\n  (SELECT round(avg(c)) FROM (\n     SELECT count(*) c FROM events\n     WHERE loaded_at::date BETWEEN CURRENT_DATE - 7 AND CURRENT_DATE - 1\n     GROUP BY loaded_at::date) p)                                           AS avg_prior_7d;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "pg_cred7",
+          "name": "Analytics Postgres (demo)"
+        }
+      }
+    },
+    {
+      "id": "6044328c-2195-4ab1-a770-7210d4a92783",
+      "name": "Assert Data Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "const q = $input.first().json;\nconst etl = $('Parse ETL Result').first().json;\n\nconst rows = Number(q.rows_today || 0);\nconst prior = Number(q.avg_prior_7d || 0);\n\nconst failures = [];\nif (rows === 0)                              failures.push('no_rows_loaded');\nif (Number(q.null_keys) > 0)                 failures.push(`null_keys=${q.null_keys}`);\nif (Number(q.duplicate_keys) > 0)            failures.push(`duplicate_keys=${q.duplicate_keys}`);\n// Volume anomaly: a 60% drop vs the trailing week usually means an upstream\n// source broke, not that traffic genuinely halved overnight.\nif (prior > 0 && rows < prior * 0.4)         failures.push(`volume_drop rows=${rows} vs avg=${prior}`);\n\nreturn [{ json: {\n  ...q, ...etl,\n  dqPassed: failures.length === 0,\n  dqFailures: failures.join(', ') || null\n}}];"
+      }
+    },
+    {
+      "id": "46f40e9f-5170-4854-b114-65f3ad214e91",
+      "name": "Data Quality Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.dqPassed}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "3b00f1aa-e9aa-41f2-b122-880b44b950ea",
+      "name": "Log Nightly Run",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        -180
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Ops Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{$now.toISODate()}}",
+            "diskUsedPct": "={{$json.disk_used_pct}}",
+            "memUsedPct": "={{$json.mem_used_pct}}",
+            "backupArchive": "={{$json.archive}}",
+            "backupBytes": "={{$json.bytes}}",
+            "rowsLoaded": "={{$json.rows_today}}",
+            "dqPassed": "={{$json.dqPassed}}",
+            "status": "ok"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred7",
+          "name": "Google Sheets - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "84a143a6-e88f-4ed6-bb1a-3bb030b1f953",
+      "name": "Post Nightly Digest",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ops",
+          "mode": "name"
+        },
+        "text": "=:crescent_moon: *Nightly run complete*\nDisk {{$json.disk_used_pct}}%  |  Mem {{$json.mem_used_pct}}%  |  Backup {{$json.archive}}  |  {{$json.rows_today}} rows loaded, DQ passed."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred7",
+          "name": "Slack - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "3e3819da-9ea8-4f6b-bf36-ba0d3a685599",
+      "name": "Quarantine Bad Load",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        120
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Move today's suspect rows aside so downstream dashboards read clean data.\nWITH moved AS (\n  DELETE FROM events WHERE loaded_at::date = CURRENT_DATE RETURNING *\n)\nINSERT INTO events_quarantine SELECT *, $1 AS reason FROM moved;",
+        "options": {
+          "queryReplacement": "={{$json.dqFailures}}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "pg_cred7",
+          "name": "Analytics Postgres (demo)"
+        }
+      }
+    },
+    {
+      "id": "3baa8996-2716-4cb7-87d6-66da399a3e09",
+      "name": "Alert Data Quality Failure",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        120
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ops",
+          "mode": "name"
+        },
+        "text": "=:no_entry: *Nightly load quarantined* \u2014 {{$json.dqFailures}}. Today's rows moved to `events_quarantine`; dashboards are still on yesterday's data."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred7",
+          "name": "Slack - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "6ca1f6a8-ed71-4f1c-9571-bb52a2d46e26",
+      "name": "Alert Backup Failure",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        140
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ops",
+          "mode": "name"
+        },
+        "text": "=:floppy_disk: *Backup verification failed* on {{$json.host}} \u2014 archive `{{$json.archive}}` ({{$json.bytes}} bytes). ETL was skipped; fix before the next cycle."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred7",
+          "name": "Slack - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "e81dd3b2-f9b8-4ec6-b4df-5e1f908ad7ab",
+      "name": "Re-Check Disk",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -220
+      ],
+      "parameters": {
+        "resource": "command",
+        "command": "df --output=pcent / | tail -1 | tr -dc '0-9'",
+        "cwd": "/opt/ops"
+      },
+      "credentials": {
+        "sshPassword": {
+          "id": "ssh_cred7",
+          "name": "Ubuntu VPS - ops user (demo)"
+        }
+      }
+    },
+    {
+      "id": "efc9584a-a7c5-4b3e-959f-d6f4060d7fbe",
+      "name": "Still Full?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        -220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($json.stdout) }}",
+              "rightValue": 85,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "4debaec1-0cf5-436b-ae5e-cc5106367d6c",
+      "name": "Escalate Disk Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ops",
+          "mode": "name"
+        },
+        "text": "=:rotating_light: Disk still at {{$json.stdout}}% after an automatic prune \u2014 needs a human. Largest offenders won't clear themselves."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred7",
+          "name": "Slack - Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "a1e5a7e2-031c-4ffc-80e2-953191e09cf0",
+      "name": "Disk Recovered",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bf67255f-7737-4d73-890a-04bcc16369c8",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        340
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "309d3442-3210-44b4-94ba-dbeb11a8c6c3",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        180,
+        340
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: VPS Ops & Data Pipeline failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred7",
+          "name": "Slack - Ops (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Nightly 02:00": {
+      "main": [
+        [
+          {
+            "node": "Run VPS Healthcheck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run VPS Healthcheck": {
+      "main": [
+        [
+          {
+            "node": "Parse Health JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Health JSON": {
+      "main": [
+        [
+          {
+            "node": "Disk Under Pressure?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Backup Volumes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disk Under Pressure?": {
+      "main": [
+        [
+          {
+            "node": "Reclaim Disk Space",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Disk Recovered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reclaim Disk Space": {
+      "main": [
+        [
+          {
+            "node": "Re-Check Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-Check Disk": {
+      "main": [
+        [
+          {
+            "node": "Still Full?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Full?": {
+      "main": [
+        [
+          {
+            "node": "Escalate Disk Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Disk Recovered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backup Volumes": {
+      "main": [
+        [
+          {
+            "node": "Verify Backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Backup": {
+      "main": [
+        [
+          {
+            "node": "Backup Good?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backup Good?": {
+      "main": [
+        [
+          {
+            "node": "Run ETL Load",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Backup Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ETL Load": {
+      "main": [
+        [
+          {
+            "node": "Parse ETL Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ETL Result": {
+      "main": [
+        [
+          {
+            "node": "Data Quality Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Quality Checks": {
+      "main": [
+        [
+          {
+            "node": "Assert Data Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Data Quality": {
+      "main": [
+        [
+          {
+            "node": "Data Quality Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Quality Passed?": {
+      "main": [
+        [
+          {
+            "node": "Log Nightly Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quarantine Bad Load",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Nightly Run": {
+      "main": [
+        [
+          {
+            "node": "Post Nightly Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quarantine Bad Load": {
+      "main": [
+        [
+          {
+            "node": "Alert Data Quality Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}

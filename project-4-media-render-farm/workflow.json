@@ -1,0 +1,578 @@
+{
+  "name": "Media Render Farm (FFmpeg)",
+  "nodes": [
+    {
+      "id": "c15c4bcf-d5af-4ffc-ab1a-5955cb694ffc",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -340
+      ],
+      "parameters": {
+        "content": "## FFmpeg Media Render Farm\nOne master video in, every ad format out. Expands a render request into a variant\nmatrix (aspect ratio x hook), shells out to FFmpeg one job at a time so the box\ndoesn't thrash, then *ffprobes every output* \u2014 a render that finishes but produces\na 0-byte file is treated as a failure, not a success. Good renders land in the asset\nmanifest that Project 6 pulls from.",
+        "height": 260,
+        "width": 520,
+        "color": 3
+      }
+    },
+    {
+      "id": "0066b95f-c7ff-46f7-a7ac-ba66165f910d",
+      "name": "Render Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "render-request",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "e2727c89-92d5-4117-9801-8b982a9b6799",
+      "name": "Build Render Matrix",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// One inbound master video fans out into every creative variant we need.\n// Body: { assetId, sourcePath, campaign, hooks: [\"...\"], formats: [\"9:16\",\"1:1\",\"16:9\"] }\nconst b = $input.first().json.body ?? $input.first().json;\n\nconst PRESETS = {\n  '9:16': { w: 1080, h: 1920, label: 'story',   crf: 23, maxrate: '4M'  },\n  '1:1':  { w: 1080, h: 1080, label: 'feed',    crf: 23, maxrate: '4M'  },\n  '16:9': { w: 1920, h: 1080, label: 'youtube', crf: 21, maxrate: '6M'  },\n  '4:5':  { w: 1080, h: 1350, label: 'portrait',crf: 23, maxrate: '4M'  }\n};\n\nconst formats = (b.formats && b.formats.length) ? b.formats : ['9:16','1:1','16:9'];\nconst hooks   = (b.hooks   && b.hooks.length)   ? b.hooks   : ['default'];\n\nconst out = [];\nfor (const f of formats) {\n  const p = PRESETS[f];\n  if (!p) continue;                      // unknown ratio -> silently skipped, counted below\n  for (const hook of hooks) {\n    const variantId = `${b.assetId}_${p.label}_${hook}`.replace(/[^a-zA-Z0-9_-]/g,'_');\n    out.push({ json: {\n      assetId: b.assetId,\n      campaign: b.campaign || 'untagged',\n      sourcePath: b.sourcePath,\n      variantId,\n      ratio: f, width: p.w, height: p.h, crf: p.crf, maxrate: p.maxrate,\n      hook,\n      outPath: `/data/renders/${variantId}.mp4`,\n      thumbPath: `/data/renders/${variantId}.jpg`,\n      requestedAt: new Date().toISOString()\n    }});\n  }\n}\n\nif (out.length === 0) {\n  throw new Error(`No renderable variants for asset ${b.assetId} \u2014 check formats[]`);\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "af4b42a5-ca76-40de-874c-a41ed7dd5d0d",
+      "name": "Ack Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        160,
+        190
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { queued: $items().length, assetId: $json.assetId } }}"
+      }
+    },
+    {
+      "id": "fba5a63a-90a4-49b1-b1a3-b50f848819e1",
+      "name": "Render One At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        380,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "43b729d6-5696-4232-9bca-935b01a2adb1",
+      "name": "FFmpeg Transcode",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -80
+      ],
+      "parameters": {
+        "command": "=bash /data/scripts/render_variant.sh --src '{{$json.sourcePath}}' --out '{{$json.outPath}}' --w {{$json.width}} --h {{$json.height}} --crf {{$json.crf}} --maxrate {{$json.maxrate}} --hook '{{$json.hook}}'",
+        "executeOnce": false
+      },
+      "notes": "Calls scripts/render_variant.sh \u2014 scale+pad to the target ratio, burn the hook\ntext, normalise loudness to -14 LUFS, faststart for web."
+    },
+    {
+      "id": "44d5353d-edfd-46da-bc01-ffcb8cc76dcf",
+      "name": "Probe Output",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        820,
+        -80
+      ],
+      "parameters": {
+        "command": "=ffprobe -v quiet -print_format json -show_format -show_streams '{{$json.outPath}}'"
+      }
+    },
+    {
+      "id": "aa49aed8-8dfc-4c98-9ca0-b701699b7f53",
+      "name": "Validate Render",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "// A render that 'succeeded' but produced a 0-byte or 0-second file is still a failure.\nconst spec  = $('Render One At A Time').first().json;\nconst probe = JSON.parse($input.first().json.stdout || '{}');\n\nconst v = (probe.streams || []).find(s => s.codec_type === 'video') || {};\nconst duration = parseFloat((probe.format || {}).duration || 0);\nconst bytes    = parseInt((probe.format || {}).size || 0, 10);\n\nconst problems = [];\nif (duration < 1)                     problems.push('duration_under_1s');\nif (bytes < 10240)                    problems.push('file_too_small');\nif (Number(v.width)  !== spec.width)  problems.push('width_mismatch');\nif (Number(v.height) !== spec.height) problems.push('height_mismatch');\n\nreturn [{ json: { ...spec,\n  durationSec: duration, bytes,\n  actualWidth: v.width, actualHeight: v.height,\n  codec: v.codec_name,\n  ok: problems.length === 0,\n  problems: problems.join(',') || null,\n  renderedAt: new Date().toISOString()\n}}];"
+      }
+    },
+    {
+      "id": "42c762fc-445a-4197-a361-838fa6d1eada",
+      "name": "Render OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.ok}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "7b081fbf-0f3f-4ac2-98cd-d55cee7e2607",
+      "name": "Generate Thumbnail",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -180
+      ],
+      "parameters": {
+        "command": "=ffmpeg -y -ss 00:00:01 -i '{{$json.outPath}}' -frames:v 1 -vf scale={{$json.width}}:{{$json.height}} '{{$json.thumbPath}}'"
+      }
+    },
+    {
+      "id": "143dbe78-32eb-4f16-b30e-9686a1c92a66",
+      "name": "Upload To Asset Store",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1700,
+        -180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ASSET_STORE_URL}}/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ASSET_STORE_TOKEN}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "=renders/{{$json.campaign}}/{{$json.variantId}}.mp4"
+            },
+            {
+              "name": "localPath",
+              "value": "={{$json.outPath}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "retry": {
+            "retryOnFail": true,
+            "maxTries": 3,
+            "waitBetweenTries": 5000
+          }
+        }
+      }
+    },
+    {
+      "id": "325dda00-4ebb-423c-ac2b-eff4fb9de62b",
+      "name": "Log To Asset Manifest",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -180
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Asset Manifest",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "variantId": "={{$json.variantId}}",
+            "assetId": "={{$json.assetId}}",
+            "campaign": "={{$json.campaign}}",
+            "ratio": "={{$json.ratio}}",
+            "hook": "={{$json.hook}}",
+            "durationSec": "={{$json.durationSec}}",
+            "bytes": "={{$json.bytes}}",
+            "codec": "={{$json.codec}}",
+            "status": "ready",
+            "renderedAt": "={{$json.renderedAt}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred4",
+          "name": "Google Sheets - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "880ac295-4d3d-4b71-8015-790558759431",
+      "name": "Log Failed Render",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        40
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Failed Renders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "variantId": "={{$json.variantId}}",
+            "assetId": "={{$json.assetId}}",
+            "problems": "={{$json.problems}}",
+            "actualWidth": "={{$json.actualWidth}}",
+            "actualHeight": "={{$json.actualHeight}}",
+            "failedAt": "={{$json.renderedAt}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred4",
+          "name": "Google Sheets - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "e9d06e7c-7423-40f5-b35e-60f45432ee61",
+      "name": "Alert Creative Ops",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        40
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#creative-ops",
+          "mode": "name"
+        },
+        "text": "=:film_frames: Render failed for *{{$json.variantId}}* \u2014 {{$json.problems}}. Source: `{{$json.sourcePath}}`"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred4",
+          "name": "Slack - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "978b6083-09a1-4f60-98a2-7036b6bc7525",
+      "name": "Batch Complete?",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        -80
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "7b2a5b97-db38-4cfb-837f-c356181105a1",
+      "name": "Post Render Summary",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        2360,
+        -80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#creative-ops",
+          "mode": "name"
+        },
+        "text": "=:white_check_mark: Rendered *{{$json.assetId}}* \u2014 variants now in the asset manifest and ready for the DCO engine to test."
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred4",
+          "name": "Slack - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "5e955312-d85e-4fe7-a8d1-4430160c2176",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "fb5ddd32-ebcb-4adb-86e5-939ca4c76bdd",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        180,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: Media Render Farm failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred4",
+          "name": "Slack - Creative Ops (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Render Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Render Matrix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Render Matrix": {
+      "main": [
+        [
+          {
+            "node": "Ack Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Render One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render One At A Time": {
+      "main": [
+        [
+          {
+            "node": "Batch Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FFmpeg Transcode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg Transcode": {
+      "main": [
+        [
+          {
+            "node": "Probe Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Output": {
+      "main": [
+        [
+          {
+            "node": "Validate Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Render": {
+      "main": [
+        [
+          {
+            "node": "Render OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render OK?": {
+      "main": [
+        [
+          {
+            "node": "Generate Thumbnail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failed Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Thumbnail": {
+      "main": [
+        [
+          {
+            "node": "Upload To Asset Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload To Asset Store": {
+      "main": [
+        [
+          {
+            "node": "Log To Asset Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log To Asset Manifest": {
+      "main": [
+        [
+          {
+            "node": "Render One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failed Render": {
+      "main": [
+        [
+          {
+            "node": "Alert Creative Ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Creative Ops": {
+      "main": [
+        [
+          {
+            "node": "Render One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Complete?": {
+      "main": [
+        [
+          {
+            "node": "Post Render Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}

@@ -1,0 +1,785 @@
+{
+  "name": "DCO Engine (Creative Performance Loop)",
+  "nodes": [
+    {
+      "id": "aa4128ff-cfc8-4413-9b85-618be1d34eb1",
+      "name": "Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -360
+      ],
+      "parameters": {
+        "content": "## DCO Engine \u2014 Creative Performance Loop\nCloses the loop between spend and revenue. Pulls ad-platform spend and affiliate\nconversions, joins them on sub_id, rolls up to per-variant CTR/CVR/CPA/ROAS/EPC,\nthen refuses to decide anything until a variant clears a volume floor AND a\nsignificance test. Winners get a capped 20% budget step, losers get paused and\nautomatically queue a replacement brief into Project 5 \u2014 so the creative pipeline\nrefills itself.",
+        "height": 270,
+        "width": 560,
+        "color": 5
+      }
+    },
+    {
+      "id": "50ca3269-f834-4d3b-bb2c-e5d2d6fdd97a",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dad50b0e-01e8-4df5-8cf8-49db0fb44760",
+      "name": "Fetch Ad Platform Insights",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        160,
+        -110
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.ADS_API_URL}}/insights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "level",
+              "value": "ad"
+            },
+            {
+              "name": "date_preset",
+              "value": "last_3d"
+            },
+            {
+              "name": "fields",
+              "value": "ad_id,ad_name,campaign_id,impressions,clicks,spend"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ADS_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "retryOnFail": true,
+            "maxTries": 4,
+            "waitBetweenTries": 10000
+          },
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{$response.body.paging?.next}}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.paging?.next }}"
+            }
+          }
+        }
+      },
+      "notes": "Spend side of the ledger. Paginated + retried \u2014 ad APIs rate-limit\nhard and a partial pull would silently skew every decision below."
+    },
+    {
+      "id": "4ec565a6-6226-42d2-b555-9537a0f4dfa8",
+      "name": "Fetch Affiliate Conversions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        160,
+        110
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.AFFILIATE_API_URL}}/conversions",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "since",
+              "value": "={{ $now.minus(3, 'days').toISO() }}"
+            },
+            {
+              "name": "group_by",
+              "value": "sub_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{$env.AFFILIATE_API_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "retryOnFail": true,
+            "maxTries": 4,
+            "waitBetweenTries": 10000
+          }
+        }
+      },
+      "notes": "Revenue side. sub_id carries the ad_id through the click,\nwhich is what lets the two sources be joined at all."
+    },
+    {
+      "id": "d528c3fd-8438-41e1-b837-5c850325b31d",
+      "name": "Join Spend + Revenue",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        420,
+        0
+      ],
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "ad_id",
+              "field2": "sub_id"
+            }
+          ]
+        },
+        "joinMode": "keepEverything",
+        "options": {}
+      }
+    },
+    {
+      "id": "e9e59584-7ebf-47ac-a498-3c207a40c439",
+      "name": "Compute Variant Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Roll the joined rows up to one record per creative variant, with the\n// derived metrics a buyer actually decides on.\nconst MIN_IMPRESSIONS = Number($env.DCO_MIN_IMPRESSIONS || 1000);\nconst TARGET_ROAS     = Number($env.DCO_TARGET_ROAS || 1.3);\n\nconst rows = $input.all().map(i => i.json);\nconst byVariant = {};\n\nfor (const r of rows) {\n  // ad_name convention: campaign__variantId__placement\n  const variantId = (r.ad_name || '').split('__')[1] || r.ad_id;\n  const v = byVariant[variantId] ||= {\n    variantId, adIds: [], campaignId: r.campaign_id,\n    impressions: 0, clicks: 0, spend: 0, conversions: 0, revenue: 0\n  };\n  if (!v.adIds.includes(r.ad_id)) v.adIds.push(r.ad_id);\n  v.impressions += Number(r.impressions || 0);\n  v.clicks      += Number(r.clicks || 0);\n  v.spend       += Number(r.spend || 0);\n  v.conversions += Number(r.conversions || 0);\n  v.revenue     += Number(r.revenue || r.payout || 0);\n}\n\nreturn Object.values(byVariant).map(v => {\n  const ctr  = v.impressions ? v.clicks / v.impressions : 0;\n  const cvr  = v.clicks ? v.conversions / v.clicks : 0;\n  const cpa  = v.conversions ? v.spend / v.conversions : null;\n  const roas = v.spend ? v.revenue / v.spend : 0;\n  const epc  = v.clicks ? v.revenue / v.clicks : 0;\n  return { json: { ...v,\n    ctr, cvr, cpa, roas, epc,\n    targetRoas: TARGET_ROAS,\n    // Below the volume floor nothing is decided \u2014 noise is not a signal.\n    hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,\n    evaluatedAt: new Date().toISOString()\n  }};\n});"
+      }
+    },
+    {
+      "id": "2c6ac503-66d7-4da7-9a15-917ec2661ec0",
+      "name": "Enough Data To Decide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        860,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.hasEnoughData}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "66f9a9f0-b464-48f4-b747-61b17c0d71ac",
+      "name": "Run Significance Test",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -110
+      ],
+      "parameters": {
+        "command": "=python3 /data/scripts/ab_significance.py --variants '{{ JSON.stringify($items().map(i => i.json)).replaceAll(\"'\", \"\") }}' --metric cvr --alpha 0.05"
+      },
+      "notes": "Two-proportion z-test against the campaign control, with a\nBonferroni correction for the number of variants under test.\nWithout this you are just chasing noise."
+    },
+    {
+      "id": "1d3483c2-7142-4cc4-9c81-4a97d3ca7553",
+      "name": "Parse Test Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -110
+      ],
+      "parameters": {
+        "jsCode": "let res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`ab_significance.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\n// res.variants[] carries { variantId, pValue, significant, lift, decision }\nreturn res.variants.map(v => ({ json: v }));"
+      }
+    },
+    {
+      "id": "c96c9462-8000-460f-aeb2-9706c3a24cd3",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1520,
+        -110
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.decision}}",
+                    "rightValue": "scale",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "scale"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.decision}}",
+                    "rightValue": "pause",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pause"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.decision}}",
+                    "rightValue": "hold",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hold"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ee41a949-3fef-4a66-9c98-69aaa91283fc",
+      "name": "Scale Winner Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1760,
+        -260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ADS_API_URL}}/adsets/{{$json.adSetId}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ daily_budget: Math.round($json.currentBudget * Number($env.DCO_SCALE_STEP || 1.2)) }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ADS_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retryOnFail": true,
+            "maxTries": 3
+          }
+        }
+      },
+      "notes": "Budget steps up by 20% per cycle, never more. Doubling a winning\nad set overnight resets learning and usually kills the winner."
+    },
+    {
+      "id": "a947ea22-abbf-4b6e-bddf-e0c202d6d66a",
+      "name": "Pause Losing Ad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1760,
+        -110
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ADS_API_URL}}/ads/{{$json.adId}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'PAUSED' }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ADS_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retryOnFail": true,
+            "maxTries": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "0e6a00b2-4ad9-48ff-872a-f23fe3e42f70",
+      "name": "Request Replacement Creative",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1980,
+        -110
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.CREATIVE_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Creative Briefs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "briefId": "=auto_{{$json.variantId}}_{{$now.toFormat('yyyyLLdd')}}",
+            "campaign": "={{$json.campaignId}}",
+            "subject": "={{$json.winningAngle || 'refresh of paused variant'}}",
+            "status": "queued",
+            "requestedBy": "dco_engine",
+            "reason": "=paused: cvr {{$json.cvr}} vs control, p={{$json.pValue}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred6",
+          "name": "Google Sheets - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "c8b5d125-b4a9-4391-aa50-c899221b9e8e",
+      "name": "Hold \u2014 No Action",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        40
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9d2dde0b-91f0-47c1-8f8e-6cf29d9f7861",
+      "name": "Log Decision",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        -110
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DCO Decision Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "variantId": "={{$json.variantId}}",
+            "decision": "={{$json.decision}}",
+            "ctr": "={{$json.ctr}}",
+            "cvr": "={{$json.cvr}}",
+            "cpa": "={{$json.cpa}}",
+            "roas": "={{$json.roas}}",
+            "epc": "={{$json.epc}}",
+            "pValue": "={{$json.pValue}}",
+            "lift": "={{$json.lift}}",
+            "decidedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred6",
+          "name": "Google Sheets - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "b6e73818-7dc2-4c0b-b354-4e54aa4d0983",
+      "name": "Log Still Learning",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        140
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.sheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DCO Decision Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "variantId": "={{$json.variantId}}",
+            "decision": "insufficient_data",
+            "impressions": "={{$json.impressions}}",
+            "clicks": "={{$json.clicks}}",
+            "decidedAt": "={{$now.toISO()}}"
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "gsheets_cred6",
+          "name": "Google Sheets - Creative Ops (demo)"
+        }
+      }
+    },
+    {
+      "id": "7ff2d166-6018-4a5f-a325-2c04682141a0",
+      "name": "Post Buying Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        2440,
+        -110
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#media-buying",
+          "mode": "name"
+        },
+        "text": "=:chart_with_upwards_trend: *DCO cycle complete*\n`{{$json.variantId}}` -> *{{$json.decision}}*  |  ROAS {{$json.roas}} (target {{$json.targetRoas}})  |  CPA {{$json.cpa}}  |  p={{$json.pValue}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred6",
+          "name": "Slack - Growth (demo)"
+        }
+      }
+    },
+    {
+      "id": "2face8e0-9add-4881-88fe-28dc62ecee60",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        340
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "2511a4fc-9566-4404-9d3d-ceaa47418580",
+      "name": "Alert Engineering (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        180,
+        340
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#eng-alerts",
+          "mode": "name"
+        },
+        "text": "=:x: DCO Engine failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack_cred6",
+          "name": "Slack - Growth (demo)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Ad Platform Insights",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Affiliate Conversions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Ad Platform Insights": {
+      "main": [
+        [
+          {
+            "node": "Join Spend + Revenue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Affiliate Conversions": {
+      "main": [
+        [
+          {
+            "node": "Join Spend + Revenue",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Join Spend + Revenue": {
+      "main": [
+        [
+          {
+            "node": "Compute Variant Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Variant Metrics": {
+      "main": [
+        [
+          {
+            "node": "Enough Data To Decide?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough Data To Decide?": {
+      "main": [
+        [
+          {
+            "node": "Run Significance Test",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Still Learning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Significance Test": {
+      "main": [
+        [
+          {
+            "node": "Parse Test Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Test Result": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Scale Winner Budget",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pause Losing Ad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hold \u2014 No Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scale Winner Budget": {
+      "main": [
+        [
+          {
+            "node": "Log Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause Losing Ad": {
+      "main": [
+        [
+          {
+            "node": "Request Replacement Creative",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Replacement Creative": {
+      "main": [
+        [
+          {
+            "node": "Log Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hold \u2014 No Action": {
+      "main": [
+        [
+          {
+            "node": "Log Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Decision": {
+      "main": [
+        [
+          {
+            "node": "Post Buying Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "portfolio-demo-instance"
+  }
+}
