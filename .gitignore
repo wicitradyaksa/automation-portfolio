@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment / secrets — never commit real credentials
+.env
+*.local
+
+# n8n runtime data
+n8n_data/
+
+# Render + creative output (generated, not source)
+/data/
+renders/
+creatives/
+*.mp4
+*.mov
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+
+# Backups
+*.tar.gz
+*.sha256
+
+# OS noise
+.DS_Store
+Thumbs.db

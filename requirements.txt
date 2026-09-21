@@ -1,0 +1,12 @@
+# Python dependencies for the portfolio scripts.
+#
+#   pip install -r requirements.txt
+#
+# Note which script needs what — none of them need all of it:
+#
+#   project-5 .../postprocess_creative.py   Pillow
+#   project-6 .../ab_significance.py        stdlib only (math.erf, no SciPy)
+#   project-7 .../etl_load.py               psycopg2-binary
+
+Pillow>=10.0.0
+psycopg2-binary>=2.9.9
