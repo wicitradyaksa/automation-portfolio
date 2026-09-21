@@ -182,6 +182,10 @@ automation-portfolio/
 - [ ] Restore-test the Project 7 backups monthly and publish the result, because an untested restore path isn't a backup
 - [ ] Replace the frequentist test in Project 6 with a Beta-Binomial posterior and compare the decisions the two would have made
 
+## License
+
+[MIT](./LICENSE) — use these workflows and scripts freely, including for commercial purposes.
+
 ## Contact
 
 **Ida Bagus Wicitra Dyaksa (Dyaksa)** — [wicitradyaksa@gmail.com](mailto:wicitradyaksa@gmail.com) · [linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129](https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/) · [github.com/wicitradyaksa](https://github.com/wicitradyaksa)
