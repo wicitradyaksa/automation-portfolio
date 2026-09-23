@@ -1,0 +1,38 @@
+# Prometheus configuration for the n8n estate.
+#
+# The target below is `observability:9109`, NOT `localhost:9109`. Inside a
+# compose network, `localhost` is the Prometheus container itself, so a
+# localhost target produces a scrape that fails forever while every config
+# file "looks right". It is the single most common mistake in a first
+# Prometheus setup, and it is why MetricsEndpointDown exists as a rule.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    estate: n8n-portfolio
+
+rule_files:
+  # Generated from obs/alerts.py. Do not hand-edit -- the test suite fails on
+  # drift between the two.
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: n8n-observability
+    # The `up` metric this produces is what MetricsEndpointDown alerts on, so
+    # the job name here and the matcher in that rule must stay in step.
+    static_configs:
+      - targets:
+          - observability:9109
+    metrics_path: /metrics
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

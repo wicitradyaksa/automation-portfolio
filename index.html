@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ida Bagus Wicitra Dyaksa — Automation Engineer</title>
-<meta name="description" content="Automation engineering portfolio of Ida Bagus Wicitra Dyaksa — seven end-to-end n8n workflows across operations, FFmpeg media rendering, ComfyUI generative creative, DCO performance optimisation, and Linux VPS data pipelines.">
+<title>Ida Bagus Wicitra Dyaksa — n8n &amp; AI Workflow Automation Engineer</title>
+<meta name="description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable, production-pattern n8n workflows (webhooks, APIs, Code Nodes, error triggers, self-healing ops, FFmpeg, ComfyUI, DCO) plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
 <meta name="author" content="Ida Bagus Wicitra Dyaksa">
-<meta property="og:title" content="Ida Bagus Wicitra Dyaksa — Automation Engineer">
-<meta property="og:description" content="Automation engineering portfolio of Ida Bagus Wicitra Dyaksa — seven end-to-end n8n workflows across operations, FFmpeg media rendering, ComfyUI generative creative, DCO performance optimisation, and Linux VPS data pipelines.">
+<meta property="og:title" content="Ida Bagus Wicitra Dyaksa — n8n &amp; AI Workflow Automation Engineer">
+<meta property="og:description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable, production-pattern n8n workflows (webhooks, APIs, Code Nodes, error triggers, self-healing ops, FFmpeg, ComfyUI, DCO) plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0c8f68">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%230c8f68'/></svg>">
@@ -384,10 +384,10 @@
   </nav>
 
   <div class="hero">
-    <div class="eyebrow">Portfolio · Automation &amp; Workflow Engineering</div>
+    <div class="eyebrow">n8n &amp; AI Workflow Automation Engineer · APIs · Code Nodes · Docker</div>
     <h1><span class="who">Ida Bagus Wicitra Dyaksa.</span><br><span class="role">I build systems that don't need a human watching them.</span></h1>
-    <p class="pitch">I design workflow automations that handle the messy parts on purpose &mdash; bad input, flaky APIs, wedged GPU queues, renders that finish and produce nothing &mdash; instead of only wiring the happy path. Seven end-to-end n8n builds below, spanning business operations, media production, generative AI, paid-media optimisation, and server infrastructure &mdash; with the Bash and Python that does the real work behind them.</p>
-    <p class="pitch" style="font-size:14.5px;">Before automation, I spent two years in operations at BAIADA (Tamworth, Australia) and six months in production at Primo Foods (Sydney) &mdash; both built on repeatable processes and zero tolerance for a step that only works if someone remembers to do it. I hold a degree in Maritime Transportation Engineering from ITS Surabaya, with a background in process simulation and system dynamics modelling. Automation engineering is me doing full-time what I kept doing informally on the floor.</p>
+    <p class="pitch">I design and ship event-driven n8n workflows that connect REST APIs, webhooks, databases and AI services, and extend n8n with JavaScript Code Nodes and Python/Bash services wherever the built-in nodes stop. Every workflow validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human: seven importable workflows below, backed by three companion Python projects, 223 tests and a linter for the workflow JSON.</p>
+    <p class="pitch" style="font-size:14.5px;">Before automation, I ran paid-media programs at Ecomobi, where rule-based automation cut wasted ad spend by 60%, then spent two years in operations at BAIADA (Tamworth, Australia) and six months in production at Primo Foods (Sydney) &mdash; both built on repeatable processes and zero tolerance for a step that only works if someone remembers to do it. I hold a degree in Maritime Transportation Engineering from ITS Surabaya, with a background in process simulation and system dynamics modelling. Automation engineering is me doing full-time what I kept doing informally on the floor.</p>
     <div class="cta-row">
       <a class="btn primary" href="#projects">View the 7 builds ↓</a>
       <a class="btn ghost" href="https://github.com/wicitradyaksa/automation-portfolio" target="_blank" rel="noopener">↗ GitHub repo</a>
@@ -435,7 +435,7 @@
 
   <section id="approach">
     <div class="section-head"><span class="section-num">01</span><h2>How I approach a build</h2></div>
-    <p class="section-desc">Connecting app A to app B is the easy part, and it isn't what breaks at 3am. All seven builds follow the same three rules &mdash; the part that's hard to see in a demo video and is what actually makes an automation trustworthy.</p>
+    <p class="section-desc">Connecting app A to app B is the easy part, and it isn't what breaks at 3am. Every build here follows the same three rules &mdash; the part that's hard to see in a demo video and is what actually makes an automation trustworthy. The companion projects add a fourth: a claim you cannot check is not evidence.</p>
     <div class="principles">
       <div class="principle">
         <div class="idx">rule / 01</div>
@@ -456,8 +456,8 @@
   </section>
 
   <section id="projects">
-    <div class="section-head"><span class="section-num">02</span><h2>Seven builds</h2></div>
-    <p class="section-desc">Each is a working n8n workflow (JSON export in the repo) with a written case study covering the architecture, the failure handling, and what I'd do differently with more time. The Bash and Python behind them runs standalone too &mdash; no n8n required.</p>
+    <div class="section-head"><span class="section-num">02</span><h2>Seven n8n workflows + the code behind them</h2></div>
+    <p class="section-desc">Projects 01&ndash;07 are working n8n workflows (JSON export in the repo), each with a written case study covering the architecture, the failure handling, and what I&rsquo;d do differently with more time. Projects 08, 09 and 10 are companion Python &mdash; 223 tests, standard library only &mdash; and exist to make the claims behind the seven workflows checkable rather than asserted.</p>
 
     <div class="track-head">Operations &amp; integration</div>
 
@@ -466,7 +466,7 @@
         <h3>Lead Intake &amp; CRM Sync</h3>
         <span class="pnum">01 / business ops</span>
       </div>
-      <p class="one-line">A webhook catches leads from any form, validates and de-duplicates them against a CRM, and alerts sales while auto-replying to the prospect &mdash; all in under a second.</p>
+      <p class="one-line">A webhook catches leads from any form, validates and de-duplicates them against a CRM, and alerts sales while auto-replying to the prospect &mdash; all in a single execution, with a 200/400 response back to the form.</p>
       <div class="flow">
         <span class="step trigger">Webhook</span><span class="arrow">→</span>
         <span class="step">Validate</span><span class="arrow">→</span>
@@ -621,6 +621,79 @@
         <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline/scripts" target="_blank" rel="noopener">↗ 3 scripts</a>
       </div>
     </div>
+
+    <div class="track-head">Companion projects &mdash; the code behind the nodes</div>
+    <p class="section-desc">The seven above <em>assert</em> error handling, observability and business impact. These three make each assertion inspectable. Standard library only, 223 tests, nothing to install &mdash; <code>py run_tests.py</code>.</p>
+
+    <div class="project">
+      <div class="project-head">
+        <h3>Integration Kit</h3>
+        <span class="pnum">08 / production python</span>
+      </div>
+      <p class="one-line">Three third-party APIs with three genuinely different auth models &mdash; OAuth2 refresh, HMAC-signed webhooks, and an API key with cursor pagination &mdash; normalised into one internal schema. The concurrent-refresh race is handled and proved with eight real threads.</p>
+      <div class="flow">
+        <span class="step trigger">OAuth2 / HMAC / API key</span><span class="arrow">&rarr;</span>
+        <span class="step">Retry + Retry-After</span><span class="arrow">&rarr;</span>
+        <span class="step warn">Verify + replay window</span><span class="arrow">&rarr;</span>
+        <span class="step">Idempotency claim</span><span class="arrow">&rarr;</span>
+        <span class="step">One Contact schema</span>
+      </div>
+      <div class="project-tags">
+        <span class="chip">Production Python</span><span class="chip">OAuth2</span><span class="chip">Webhook security</span><span class="chip">Rate limiting</span><span class="chip">Concurrency</span><span class="chip">83 tests</span>
+      </div>
+      <div class="project-links">
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-8-integration-kit" target="_blank" rel="noopener">&#8599; Case study</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-8-integration-kit/integration_kit/oauth.py" target="_blank" rel="noopener">&#8599; oauth.py &mdash; the race</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-8-integration-kit/integration_kit/webhooks.py" target="_blank" rel="noopener">&#8599; webhooks.py</a>
+      </div>
+    </div>
+
+    <div class="project">
+      <div class="project-head">
+        <h3>Observability Layer</h3>
+        <span class="pnum">09 / monitoring / SRE</span>
+      </div>
+      <p class="one-line">Correlation IDs that survive a workflow boundary, a Prometheus metrics endpoint, seven alert rules and an on-call runbook &mdash; wrapped around the seven workflows above. Includes the alert that rate-based monitoring structurally cannot produce: a scheduled workflow that stopped running entirely.</p>
+      <div class="flow">
+        <span class="step trigger">n8n execution event</span><span class="arrow">&rarr;</span>
+        <span class="step">Correlation ID</span><span class="arrow">&rarr;</span>
+        <span class="step">Collector</span><span class="arrow">&rarr;</span>
+        <span class="step">/metrics</span><span class="arrow">&rarr;</span>
+        <span class="step warn">7 alerts &rarr; runbook</span>
+      </div>
+      <div class="project-tags">
+        <span class="chip">Prometheus</span><span class="chip">Grafana</span><span class="chip">Structured logging</span><span class="chip">Alerting</span><span class="chip">Docker</span><span class="chip">105 tests</span>
+      </div>
+      <div class="project-links">
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-9-observability-layer" target="_blank" rel="noopener">&#8599; Case study</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md" target="_blank" rel="noopener">&#8599; The on-call runbook</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/obs/alerts.py" target="_blank" rel="noopener">&#8599; alerts.py</a>
+      </div>
+    </div>
+
+    <div class="project">
+      <div class="project-head">
+        <h3>Migration Case Study</h3>
+        <span class="pnum">10 / business impact</span>
+      </div>
+      <p class="one-line">A before/after write-up of Project 02's process where every number is regenerated from raw data by a script rather than typed in &mdash; including the accounting decisions that make the figure <em>smaller</em>. A test fails if the prose drifts from the data, or if an unmarked percentage appears that the analysis does not produce.</p>
+      <div class="flow">
+        <span class="step trigger">Time the steps</span><span class="arrow">&rarr;</span>
+        <span class="step">Raw CSV per run</span><span class="arrow">&rarr;</span>
+        <span class="step">Wilson intervals</span><span class="arrow">&rarr;</span>
+        <span class="step">Per-item normalise</span><span class="arrow">&rarr;</span>
+        <span class="step warn">Payback + caveats</span>
+      </div>
+      <div class="project-tags">
+        <span class="chip">Process analysis</span><span class="chip">Measurement</span><span class="chip">Statistics</span><span class="chip">Business impact</span><span class="chip">35 tests</span>
+      </div>
+      <div class="project-links">
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-10-migration-case-study" target="_blank" rel="noopener">&#8599; The case study</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-10-migration-case-study/scripts/analyse_impact.py" target="_blank" rel="noopener">&#8599; analyse_impact.py</a>
+        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-10-migration-case-study/data/README.md" target="_blank" rel="noopener">&#8599; How the data was collected</a>
+      </div>
+    </div>
+
   </section>
 
   <section id="loop">

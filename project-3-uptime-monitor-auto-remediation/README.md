@@ -1,58 +1,126 @@
-# Uptime Monitor & Auto-Remediation
+# ⚡ Uptime Monitor & Auto-Remediation: Restart It, Verify It, and Only Then Wake Someone Up
 
-**One line:** Polls each service's health endpoint every 5 minutes; on failure it tries an automated fix (`docker restart`) before waking a human, and logs every check and every incident for later MTTR reporting.
+[![n8n](https://img.shields.io/badge/n8n-v1.0%2B-FF6D5A?logo=n8n)](https://n8n.io)
+[![Nodes](https://img.shields.io/badge/Nodes-15-informational)](./workflow.json)
+[![Docker](https://img.shields.io/badge/Docker-self--heal-2496ED?logo=docker)](../docker-compose.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
 
-## The problem
+> **Quick Summary:** A scheduled n8n workflow that health-checks every registered service every 5 minutes. On failure it attempts a `docker restart`, waits 30 seconds, and re-checks. It posts a self-heal notice if that worked and escalates to on-call if it didn't. Every heartbeat, self-heal and incident is logged separately so uptime % and MTTR can be computed later.
 
-Basic uptime monitors are good at telling you *that* something is down — they're not good at fixing it, and a lot of production incidents (especially in small teams that self-host their own services) are "the container hung and needed a restart," something a human doesn't need to be paged for at 3am to do.
+---
 
-## The solution
+## 📷 Workflow Preview
 
-1. **Schedule Trigger** runs every 5 minutes.
-2. **Set Target Services** defines the list of monitored services in one place (add/remove a service by editing one node, not the whole workflow).
-3. **Health Check** — a GET request to each service's `/health` endpoint.
-4. **Branch on status** — a non-200 response triggers remediation; a healthy response just logs a heartbeat.
-5. **Attempt self-heal** — `docker restart <container>` via the Execute Command node, then wait 30 seconds and check again.
-6. **Branch again** — if the re-check is healthy, log it as "self-healed" and notify `#incidents` (visibility without waking anyone); if it's still down, escalate to on-call and log it as an actual incident.
+<!-- Add docs/images/workflow-screenshot.png after the first run with live credentials -->
+*Download the ready-to-import n8n workflow file: [`workflow.json`](./workflow.json)*
 
-## Architecture
+---
 
+## 🎯 Business Problem & Impact
+
+* **The Challenge:** Basic uptime monitors tell you *that* something is down, not how to fix it. In small self-hosted teams, many incidents are simply "the container hung," which a restart fixes. Paging a human at 3am for that is expensive and wears people out.
+* **The Solution:** A tiered response of detect → self-heal → verify → escalate. Remediation is always confirmed by a re-check, and it is never looped forever.
+* **Impact & ROI:**
+  * **Detection latency:** **≤ 5 minutes**, set by the schedule interval.
+  * **Hung-container incidents:** Resolved in **about 30 seconds with zero pages** *(design target: restart + 30 s wait + re-check)*.
+  * **Pager load:** On-call is paged **only after automated remediation has provably failed**.
+  * **Reporting:** Heartbeats, self-heals and incidents are logged as distinct outcomes, so "12 self-heals, 1 real incident this month" can be reported instead of "13 pages".
+
+---
+
+## 🏗️ Workflow Architecture
+
+```mermaid
+graph TD
+    A[Schedule Trigger: Every 5 Minutes] --> B[Code: Set Target Services]
+    B --> C[HTTP Request: Health Check<br/>onError: continue]
+    C --> D{Is Unhealthy?<br/>status ≠ 200}
+    D -- No --> E[Sheets: Log Heartbeat OK]
+    D -- Yes --> F[Execute Command: docker restart]
+    F --> G[Wait 30s For Recovery]
+    G --> H[HTTP Request: Re-Check Health]
+    H --> I{Still Down After Restart?}
+    I -- Yes --> J[Slack: Escalate To On-Call]
+    J --> K[Sheets: Log Incident]
+    I -- No --> L[Slack: Notify Self-Healed]
+    L --> M[Sheets: Log Self-Heal]
+    X[Error Trigger: Workflow Error] --> Y[Slack: #eng-alerts]
 ```
-Every 5 min ─▶ Set Target Services ─▶ Health Check ─▶ Unhealthy? ─┬─▶ Restart Container ─▶ Wait 30s ─▶ Re-Check ─▶ Still Down? ─┬─▶ Escalate On-Call ─▶ Log Incident
-                                                                    │                                                          └─▶ Notify Self-Healed ─▶ Log Self-Heal
-                                                                    └─▶ Log Heartbeat (OK)
 
-[errorTrigger] ─▶ Alert Engineering (Slack)
-```
+---
 
-## Tech stack
+## ⚙️ Key Technical Features
 
-- **n8n** — orchestration, running in Docker (`docker-compose.yml` at the repo root)
-- **Schedule Trigger** — cron-style polling
-- **HTTP Request** — health checks (`onError: continueRegularOutput` so a timeout is treated as data, not a workflow crash)
-- **Execute Command** — runs `docker restart` on the host n8n is deployed on (or via the Docker socket/API in a hardened version — see below)
-- **Google Sheets** — uptime log + incident log
-- **Slack** — self-heal notice vs. on-call escalation, deliberately two different channels/tones
+* **Service registry in one Code Node:** `Set Target Services` returns one item per service (`service`, `url`, `container`). To add or remove a service you edit one node, and n8n fans the rest of the workflow out per item.
+* **Timeouts as data, not crashes:** Both health checks return the full response with *Never Error* on (so a 503 is data), and the node setting *On Error → Continue* turns a refused connection into an item with no `statusCode`, which the IF treats as `0`, meaning unhealthy.
+* **Restart failures still escalate:** `Restart Container` also continues on error, so a failed `docker restart` flows into the re-check and pages on-call instead of stopping the workflow.
+* **Verified remediation:** A restart is never reported as a fix until the `Re-Check Health` request confirms it.
+* **Two different messages for two different situations:** A self-heal is an FYI post in `#incidents`. A failed self-heal is an escalation to on-call.
+* **Resilient error handling:** The **Error Trigger** alerts `#eng-alerts` if the monitor itself breaks, because a silent monitor is worse than none.
 
-## Why it's built this way
+---
 
-- **Self-heal before escalate.** The whole point of this workflow is reducing pages for a class of incident that doesn't need a human — but it still escalates rather than retrying forever, so a genuinely broken deployment doesn't get silently restart-looped.
-- **Every check is logged, not just failures.** Without the "OK" heartbeats, you can't calculate real uptime % or prove the monitor itself was running during a gap.
-- **Self-heals and real incidents are logged as distinct outcomes.** This is what makes an MTTR/incident report meaningful later — "12 self-heals, 1 real incident this month" is a very different story than "13 pages."
+## 🧠 Why It's Built This Way
 
-## Security note (read before using `Execute Command` for real)
+* **Self-heal before escalate, but escalate.** It removes pages for a class of incident that doesn't need a human, without restart-looping a genuinely broken deployment.
+* **Log every check, not just failures.** Without "OK" heartbeats you can't compute real uptime %, and you can't prove the monitor was running during a gap.
+* **Keep outcomes distinct.** Self-heal and incident are separate log rows, which is what makes an MTTR report meaningful.
 
-Running `docker restart` via the **Execute Command** node assumes n8n has shell access to the Docker host, which is a meaningful trust boundary — in a real deployment you'd scope this tightly: run n8n's container with a narrowly-permissioned Docker socket proxy (e.g. `tecnativa/docker-socket-proxy` restricted to `POST /containers/{id}/restart` only) rather than a full Docker socket mount, so a compromised or buggy workflow can't do anything else to the host.
+### ⚠️ Security note: read before running `Execute Command` for real
+`docker restart` via **Execute Command** assumes n8n has shell access to the Docker host, which is a significant trust boundary. In production, run n8n with a narrowly scoped Docker socket proxy (e.g. `tecnativa/docker-socket-proxy` restricted to `POST /containers/{id}/restart`) and call it with an HTTP Request node, rather than mounting the full Docker socket.
 
-## What I'd improve with more time
+---
 
-- Swap the raw `docker restart` command for a scoped Docker Socket Proxy + HTTP Request call (see security note above).
-- Add exponential backoff / a max-restarts-per-hour guard so a genuinely crash-looping service doesn't get restarted indefinitely before escalating.
-- Compute and post a weekly uptime % / MTTR summary from the logged sheet data instead of only reacting to individual incidents.
+## 🔐 Prerequisites & Environment Variables
 
-## Running it
+n8n v1.0+, running on (or with scoped access to) the Docker host. See the repo-root [`docker-compose.yml`](../docker-compose.yml).
 
-1. `docker compose up -d` from the repo root to get a local n8n instance.
-2. Import `workflow.json`.
-3. Edit the **Set Target Services** node with your real service URLs and container names.
-4. Connect Google Sheets and Slack credentials, then activate the workflow.
+| Credential (placeholder name in JSON) | Type | Used by |
+| :--- | :--- | :--- |
+| `Google Sheets - Ops (demo)` | Google Sheets OAuth2 | Heartbeat, Incident and Self-Heal logs |
+| `Slack - Ops Workspace (demo)` | Slack API (`chat:write`) | `#incidents`, `#eng-alerts` |
+| `OPS_SHEET_ID` | Environment variable: the ops Google Sheet (`Uptime Log`, `Incidents` tabs) | All Sheets nodes |
+
+**Note:** recent n8n releases disable the Execute Command node by default. The repo-root compose file re-enables it (`NODES_EXCLUDE=[]`). Alternatively, use the socket-proxy approach above.
+
+Environment variables reach the workflow as `$env.NAME` through the repo-root [`docker-compose.yml`](../docker-compose.yml) (`env_file: .env`, see [`.env.example`](../.env.example)), which also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
+
+> **Turn on the Error Trigger:** n8n only runs an Error Trigger for workflows that name it as their error workflow. After importing, open **Workflow Settings → Error Workflow** and select this workflow (or a shared error-handler workflow). Until you do, failures show in the execution list but don't alert Slack.
+
+---
+
+## 🚀 Quick Start / How to Import
+
+1. `docker compose up -d` from the repo root.
+2. **Import** [`workflow.json`](./workflow.json) via **`...` → Import from File**.
+3. **Edit `Set Target Services`** with your real health URLs and container names.
+4. **Map credentials** for Google Sheets and Slack, then **Activate**.
+5. **Test the self-heal path:** `docker stop <container>` makes the health check fail. The restart should bring it back, and you should see a self-heal notice.
+
+---
+
+## 🧪 Edge Cases & Testing Strategy
+
+| Scenario | Handled By | Outcome |
+| :--- | :--- | :--- |
+| Service returns non-200 | `Is Unhealthy?` | Restart → wait 30 s → re-check |
+| Service unreachable / request times out | HTTP Request `onError: continueRegularOutput` | Treated as unhealthy, not a workflow crash |
+| Restart fixes it | `Still Down After Restart?` = false | `#incidents` FYI + Self-Heal log row, no page |
+| Restart doesn't fix it | `Still Down After Restart?` = true | On-call escalation + Incident log row |
+| Monitor workflow itself fails | **Error Trigger** → `#eng-alerts` | Engineering alerted |
+
+---
+
+## 🛣️ Roadmap / v2 Hardening (not yet built)
+
+* **Restart budget:** A max-restarts-per-hour guard with backoff, so a crash-looping service escalates quickly instead of being restarted repeatedly.
+* **Scoped remediation:** Replace Execute Command with an HTTP Request to a Docker socket proxy.
+* **Weekly SLO digest:** A sub-workflow that computes uptime % and MTTR from the logs and posts them to Slack.
+* **Metrics export:** Emit run and incident events to the [Project 9](../project-9-observability-layer) Prometheus exporter.
+
+---
+
+## 📄 License
+Distributed under the [MIT License](../LICENSE).
+
+[← Back to portfolio](../README.md)

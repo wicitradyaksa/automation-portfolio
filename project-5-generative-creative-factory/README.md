@@ -1,117 +1,156 @@
-# Generative Creative Factory (ComfyUI / SDXL)
+# ⚡ Generative Creative Factory (ComfyUI / SDXL): A Spreadsheet Row In, Placement-Ready Ad Creatives Out
 
-**Marketing fills in a spreadsheet row. A GPU box turns it into a full set of placement-ready ad creatives. Nobody opens the ComfyUI node editor.**
+[![n8n](https://img.shields.io/badge/n8n-v1.0%2B-FF6D5A?logo=n8n)](https://n8n.io)
+[![Nodes](https://img.shields.io/badge/Nodes-23-informational)](./workflow.json)
+[![GenAI](https://img.shields.io/badge/ComfyUI-SDXL-8A2BE2)](https://github.com/comfyanonymous/ComfyUI)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
 
-## The problem
+> **Quick Summary:** A scheduled n8n workflow that reads queued creative briefs from Google Sheets, **builds the ComfyUI API-format node graph in a JavaScript Code Node**, queues it on a GPU box, polls for completion with a hard give-up, then post-processes each output in Python into four ad placements with the metadata stripped. Briefs with a master video are then handed to the [Render Farm](../project-4-media-render-farm). Nobody opens the ComfyUI node editor.
 
-ComfyUI is a superb generation tool and a terrible production interface. The node graph is where the power is, and it's also where a non-technical marketer will reliably break something — change a sampler, drop a connection, forget the seed, or quietly generate 400 images at the wrong resolution.
+---
 
-The other half of the problem is what happens *after* generation. A raw SDXL output is a 1024×1024 PNG with the entire prompt graph embedded in its metadata. That is not an ad. It needs cropping to four placement ratios, the metadata stripped (you really do not want your prompt strategy shipping to an ad network), and converting to a format the upload flow accepts.
+## 📷 Workflow Preview
 
-## The solution
+<!-- Add docs/images/workflow-screenshot.png after the first run with live credentials -->
+*Download the ready-to-import n8n workflow file: [`workflow.json`](./workflow.json)*
 
-A scheduled workflow reads queued briefs from a Google Sheet, **builds the ComfyUI API-format node graph programmatically** from the brief fields, queues it, polls until the images land, and post-processes everything in Python.
+---
 
+## 🎯 Business Problem & Impact
+
+* **The Challenge:** ComfyUI is a superb generation tool and a terrible production interface. Non-technical users reliably break the node graph. And a raw SDXL output isn't an ad: it's a 1024×1024 PNG with your whole prompt strategy embedded in its metadata.
+* **The Solution:** The spreadsheet marketing already uses becomes the UI. n8n builds the graph, drives the GPU asynchronously, verifies the results, and exports finished placements.
+* **Impact & ROI:**
+  * **Manual steps removed:** From brief to **4 placement-ready, metadata-stripped creatives per generated image** with no human in the loop *(design target)*.
+  * **Bounded failure:** The worst-case stall is capped at **about 5 minutes** (elapsed-time cap, polling every 20 s) instead of an indefinite hang that holds a worker slot.
+  * **Reproducibility:** The seed is written back to the sheet, so a winning look can be regenerated at a new ratio months later.
+  * **Closed loop:** Briefs paused by the [DCO Engine](../project-6-dco-engine) arrive here automatically and are regenerated the next morning.
+
+---
+
+## 🏗️ Workflow Architecture
+
+```mermaid
+graph TD
+    A[Schedule: Every Morning 06:00] --> B[Sheets: Read Creative Briefs<br/>status = queued]
+    B --> C{Any Briefs Queued?}
+    C -- No --> Z[NoOp: Nothing To Render]
+    C -- Yes --> D[Split In Batches: One Brief At A Time]
+    D --> E[Code: Build ComfyUI Graph]
+    E --> F[HTTP: Queue On ComfyUI<br/>POST /prompt · Retry ×3]
+    F --> G[Wait 20s]
+    G --> H[HTTP: Poll Generation History<br/>GET /history/id]
+    H --> I[Code: Check Completion]
+    I --> J{Generation Done?}
+    J -- No --> K{Gave Up Waiting?<br/>≥ 5 min elapsed}
+    K -- No --> G
+    K -- Yes --> L[Sheets: Mark Brief Failed]
+    L --> M[Slack: Alert GPU Queue Stuck]
+    J -- Yes --> N[Execute Command: postprocess_creative.py]
+    N --> O[Code: Parse Creative Output]
+    O --> P[Sheets: Mark Brief Rendered]
+    P --> V{Has Master Video?}
+    V -- Yes --> Q[HTTP: Hand Off To Render Farm]
+    V -- No --> R[Slack: Post Creative Digest]
+    Q --> R
+    R --> D
+    X[Error Trigger] --> Y[Slack: Alert Engineering]
 ```
-06:00 daily
-   │
-   ▼
-Read Creative Briefs  (status = "queued")
-   │
-Any Briefs Queued? ──no──► Nothing To Render
-   │ yes
-   ▼
-One Brief At A Time ◄─────────────────────────────────┐
-   │ (loop)                                           │
-   ▼                                                  │
-Build ComfyUI Graph      ← JS builds the API-format JSON
-   ▼
-Queue On ComfyUI  POST /prompt  (retry ×3)
-   ▼
-Wait 20s ◄──────────────────┐
-   ▼                        │
-Poll /history/{prompt_id}   │
-   ▼                        │
-Check Completion            │
-   │                        │
-Generation Done? ──no──► Gave Up Waiting? ──no──┘  (max 15 polls ≈ 5 min)
-   │ yes                        │ yes
-   │                            ▼
-   │                    Mark Brief Failed → Alert GPU Queue Stuck ─┐
-   ▼                                                              │
-Post-Process Creatives  (Python: download, strip, crop ×4)        │
-   ▼                                                              │
-Parse Creative Output                                             │
-   ▼                                                              │
-Mark Brief Rendered → Hand Off To Render Farm → Post Digest ──────┘
-```
 
-## Building the node graph in code
+---
 
-The `Build ComfyUI Graph` node constructs ComfyUI's API-format JSON from the brief row — checkpoint loader, two CLIP text encoders (positive and negative), empty latent, KSampler, VAE decode, save image — wiring the node references (`['1', 0]`) by hand:
+## ⚙️ Key Technical Features
 
-```js
-'5': { class_type: 'KSampler',
-       inputs: { seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras',
-                 denoise: 1, model: ['1', 0], positive: ['2', 0],
-                 negative: ['3', 0], latent_image: ['4', 0] } },
-```
+* **Programmatic graph construction:** `Build ComfyUI Graph` emits ComfyUI's API-format JSON (checkpoint loader, positive/negative CLIP encoders, empty latent, KSampler, VAE decode, save) and wires node references by hand:
 
-The seed is captured and written back to the sheet on success. That single field is the difference between "we got a great image once" and "we can regenerate that exact look at a different aspect ratio next month."
+  ```js
+  '5': { class_type: 'KSampler',
+         inputs: { seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras',
+                   denoise: 1, model: ['1', 0], positive: ['2', 0],
+                   negative: ['3', 0], latent_image: ['4', 0] } },
+  ```
 
-## The polling loop, and why it gives up
+* **Async polling loop with a hard give-up:** `/prompt` is fire-and-forget. The loop polls `/history/{prompt_id}` every 20 s and measures elapsed time since the brief started. After 5 minutes it marks the brief `failed_timeout` and alerts. It uses elapsed time rather than a counter because each poll response replaces `$json`, so a counter carried on the item would reset every loop and never time out. **A workflow that gives up loudly is worth more than one that waits politely forever.**
+* **Retry on submission:** `Queue On ComfyUI` uses node-level **Retry On Fail (3 tries, 5 s apart)**.
+* **Workflow-to-workflow contract:** For briefs with a `videoSourcePath`, `Hand Off To Render Farm` POSTs to the Render Farm webhook (`$env.N8N_BASE_URL/webhook/render-request`). Two workflows with a clean contract beat one workflow doing both jobs.
+* **Python post-processing** ([`scripts/postprocess_creative.py`](./scripts/postprocess_creative.py)):
+  * It downloads from `/view` with a size floor. A sub-1 KB response is a ComfyUI error page and raises instead of being saved.
+  * It exports 1:1, 4:5, 9:16 and 1.91:1 placements via `ImageOps.fit`, biased slightly above centre.
+  * It re-saves as progressive JPEG, which **drops the PNG text chunks** holding the prompt graph.
+  * Errors are isolated per image and returned as JSON, never as a traceback on stdout.
+* **Resilient error handling:** Timeouts take the failure branch. Unexpected crashes go to the **Error Trigger**.
 
-ComfyUI's `/prompt` endpoint is fire-and-forget — it returns a `prompt_id` immediately and the job may take anything from 20 seconds to several minutes depending on batch size and what else is on the GPU. `/history/{prompt_id}` returns `{}` until the job completes.
+---
 
-The naive version of this loop polls forever. When the GPU queue wedges — which it does, usually on an OOM from too large a batch — that workflow execution hangs indefinitely, holds a worker slot, and nobody finds out until someone asks why yesterday's creatives never arrived.
+## 🧠 Why It's Built This Way
 
-So the loop counts its own attempts and hard-stops at 15 polls (~5 minutes), marks the brief `failed_timeout` with the poll count, and alerts. **A workflow that gives up loudly is worth more than one that waits politely forever.**
+* **A spreadsheet is the UI.** It's already open, it supports comments, and it doubles as the status ledger.
+* **One brief at a time.** GPU inference is serial anyway. Concurrent briefs just fail together when VRAM runs out.
+* **The script speaks JSON.** The downstream Code Node parses stdout, and `{"ok": false, "error": "..."}` makes a far better alert than a traceback.
 
-## Post-processing in Python
+---
 
-[`scripts/postprocess_creative.py`](./scripts/postprocess_creative.py) handles everything between "there are PNGs on the GPU box" and "there are ad creatives on disk":
+## 🔐 Prerequisites & Environment Variables
 
-- Downloads each generation from `/view`, with a size floor — a sub-1 KB response means ComfyUI returned an error page, not an image, and that gets raised rather than saved.
-- Exports four placements (1:1 feed, 4:5 portrait, 9:16 story, 1.91:1 link) using `ImageOps.fit` with centering `(0.5, 0.45)` — crop to fill, biased slightly above centre, because SDXL compositions are centre-weighted and letterboxing gets scored as low-quality creative.
-- Re-saves as progressive JPEG, which **drops the PNG text chunks** where ComfyUI stores the full prompt graph.
-- Per-image error isolation: one failed download doesn't lose the other eleven, and the failures come back in the JSON response rather than vanishing.
+n8n v1.0+, a reachable ComfyUI instance, and Python 3 + Pillow available to Execute Command.
 
-Everything it prints is JSON, including its errors — the downstream Code node parses stdout, and a Python traceback there produces a far worse error message than a structured `{"ok": false, "error": "..."}`.
+| Variable / Credential | Description | Used by |
+| :--- | :--- | :--- |
+| `COMFYUI_URL` | ComfyUI base URL, e.g. `http://comfyui:8188` | Queue, Poll, Check Completion |
+| `CREATIVE_SHEET_ID` | Google Sheet holding `Creative Briefs` | Read / Mark Rendered / Mark Failed |
+| `N8N_BASE_URL` | This n8n instance, used for the Render Farm hand-off | Hand Off To Render Farm |
+| `Google Sheets - Creative Ops (demo)` | Google Sheets OAuth2 | Brief queue + status ledger |
+| `Slack - Creative Ops (demo)` | Slack API (`chat:write`) | Digest, GPU-stuck alert, engineering alert |
 
-## Tech stack
+**Note:** recent n8n releases block `$env` access and disable Execute Command by default. The repo-root compose file re-enables both (`N8N_BLOCK_ENV_ACCESS_IN_NODE=false`, `NODES_EXCLUDE=[]`). Only do that on an instance you control.
 
-- **n8n** — Schedule Trigger, Google Sheets, Split In Batches, Code, HTTP Request, Wait, IF, Execute Command, Slack, Error Trigger
-- **ComfyUI / SDXL** — API-format graph submission, async job polling, `/view` retrieval
-- **Python 3 + Pillow** — download, placement export, metadata stripping
-- **Google Sheets** — the brief queue and the status ledger, because it's the interface marketing already has
+Sheet columns: `briefId, campaign, subject, style, lighting, negative, checkpoint, width, height, batchSize, seed, steps, cfg, status`, plus optional `videoSourcePath` and `hooks` (pipe-separated, e.g. `Try it free|50% off today`) for the Render Farm hand-off.
 
-## Why it's built this way
+Environment variables reach the workflow as `$env.NAME` through the repo-root [`docker-compose.yml`](../docker-compose.yml) (`env_file: .env`, see [`.env.example`](../.env.example)), which also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
 
-**A spreadsheet is the UI.** Not a custom app, not the ComfyUI editor. It's already open on their second monitor, it supports comments, and it gives you the status ledger for free.
+> **Turn on the Error Trigger:** n8n only runs an Error Trigger for workflows that name it as their error workflow. After importing, open **Workflow Settings → Error Workflow** and select this workflow (or a shared error-handler workflow). Until you do, failures show in the execution list but don't alert Slack.
 
-**One brief at a time.** GPU inference is serial anyway; batching briefs concurrently just means several of them fail together when VRAM runs out.
+---
 
-**It hands off rather than doing everything.** Briefs with a master video get POSTed to the [render farm's](../project-4-media-render-farm) webhook. Two workflows with a clean contract between them beat one workflow that does both jobs badly — and it means the render farm can be tested, restarted, or replaced on its own.
+## 🚀 Quick Start / How to Import
 
-## What I'd improve with more time
-
-- Replace polling with ComfyUI's WebSocket progress endpoint — same result, no 20-second granularity, and real progress reporting.
-- An automated brand-safety gate before anything reaches the manifest: a CLIP classifier pass for unintended text, watermarks, or malformed hands, which SDXL still produces often enough to matter.
-- Prompt versioning, so a performance change can be traced back to the prompt revision that caused it rather than guessed at.
-- ControlNet conditioning off the product photo, so generated scenes keep the actual product geometry instead of a plausible-looking approximation of it.
-
-## Running it
-
-Import [`workflow.json`](./workflow.json), point `COMFYUI_URL` at your instance, and create a `Creative Briefs` sheet with these columns:
-
-| briefId | campaign | subject | style | lighting | negative | checkpoint | width | height | batchSize | seed | steps | cfg | status |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `b_001` | `summer_sale` | `iced coffee can on marble` | `editorial product photography` | `soft morning window light` | | | `1024` | `1024` | `4` | | `28` | `6.5` | `queued` |
-
-Set `status` to `queued` and the next run picks it up. The script can also be driven directly:
+1. **Import** [`workflow.json`](./workflow.json), set the environment variables, and map the credentials.
+2. **Add a brief row** with `status = queued`, e.g. `b_001 | summer_sale | iced coffee can on marble | editorial product photography | soft morning window light | … | 1024 | 1024 | 4 | | 28 | 6.5 | queued`.
+3. **Execute** the workflow manually (or wait for 06:00).
+4. The post-processor also runs standalone:
 
 ```bash
 python3 scripts/postprocess_creative.py \
   --brief b_001 --campaign summer_sale --out-dir ./out \
   --images '[{"filename":"x.png","url":"http://comfyui:8188/view?filename=x.png&type=output"}]'
 ```
+
+---
+
+## 🧪 Edge Cases & Testing Strategy
+
+| Scenario | Handled By | Outcome |
+| :--- | :--- | :--- |
+| GPU queue wedged (e.g. OOM) | Elapsed-time check → `Gave Up Waiting?` | After 5 minutes: brief marked `failed_timeout`, Slack alert, next brief continues |
+| Brief has no master video | `Has Master Video?` | Creatives are logged and announced. No hand-off request is sent |
+| ComfyUI briefly unreachable on submit | Node-level Retry On Fail | 3 attempts, 5 s apart |
+| `/view` returns an error page instead of an image | Size floor in `postprocess_creative.py` | Raised and reported per image. The other images still process |
+| No briefs queued | `Read Creative Briefs` (*Always Output Data*) → `Any Briefs Queued?` | NoOp, and the run ends cleanly |
+| Unexpected workflow failure | **Error Trigger** → Slack | Engineering alerted |
+
+---
+
+## 🛣️ Roadmap / v2 Hardening (not yet built)
+
+* **LLM prompt expansion:** An OpenAI node turns a one-line brief into structured positive/negative prompts.
+* **Vector memory of winners:** Store prompts of variants the DCO Engine scaled in a vector store and retrieve them as few-shot examples.
+* **Brand-safety gate:** A CLIP classifier pass that catches unintended text, watermarks and malformed hands before export.
+* **WebSocket progress** instead of 20-second polling.
+* **Retry sub-workflow:** Re-queue a timed-out brief once before marking it failed.
+
+---
+
+## 📄 License
+Distributed under the [MIT License](../LICENSE).
+
+[← Back to portfolio](../README.md)

@@ -41,7 +41,7 @@
       "id": "dad50b0e-01e8-4df5-8cf8-49db0fb44760",
       "name": "Fetch Ad Platform Insights",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         160,
         -110
@@ -62,7 +62,7 @@
             },
             {
               "name": "fields",
-              "value": "ad_id,ad_name,campaign_id,impressions,clicks,spend"
+              "value": "ad_id,ad_name,adset_id,campaign_id,impressions,clicks,spend"
             }
           ]
         },
@@ -77,11 +77,6 @@
         },
         "options": {
           "timeout": 60000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 4,
-            "waitBetweenTries": 10000
-          },
           "pagination": {
             "pagination": {
               "paginationMode": "responseContainsNextURL",
@@ -92,13 +87,16 @@
           }
         }
       },
-      "notes": "Spend side of the ledger. Paginated + retried \u2014 ad APIs rate-limit\nhard and a partial pull would silently skew every decision below."
+      "notes": "Spend side of the ledger. Paginated + retried \u2014 ad APIs rate-limit\nhard and a partial pull would silently skew every decision below.",
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 10000
     },
     {
       "id": "4ec565a6-6226-42d2-b555-9537a0f4dfa8",
       "name": "Fetch Affiliate Conversions",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         160,
         110
@@ -129,19 +127,17 @@
           ]
         },
         "options": {
-          "timeout": 60000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 4,
-            "waitBetweenTries": 10000
-          }
+          "timeout": 60000
         }
       },
-      "notes": "Revenue side. sub_id carries the ad_id through the click,\nwhich is what lets the two sources be joined at all."
+      "notes": "Revenue side. sub_id carries the ad_id through the click,\nwhich is what lets the two sources be joined at all.",
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 10000
     },
     {
       "id": "d528c3fd-8438-41e1-b837-5c850325b31d",
-      "name": "Join Spend + Revenue",
+      "name": "Wait For Both Pulls",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
@@ -149,19 +145,10 @@
         0
       ],
       "parameters": {
-        "mode": "combine",
-        "advanced": true,
-        "mergeByFields": {
-          "values": [
-            {
-              "field1": "ad_id",
-              "field2": "sub_id"
-            }
-          ]
-        },
-        "joinMode": "keepEverything",
+        "mode": "append",
         "options": {}
-      }
+      },
+      "notes": "Synchronisation point only: waits until both API pulls have finished.\nThe ad_id <-> sub_id join happens in Compute Variant Metrics."
     },
     {
       "id": "e9e59584-7ebf-47ac-a498-3c207a40c439",
@@ -173,7 +160,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Roll the joined rows up to one record per creative variant, with the\n// derived metrics a buyer actually decides on.\nconst MIN_IMPRESSIONS = Number($env.DCO_MIN_IMPRESSIONS || 1000);\nconst TARGET_ROAS     = Number($env.DCO_TARGET_ROAS || 1.3);\n\nconst rows = $input.all().map(i => i.json);\nconst byVariant = {};\n\nfor (const r of rows) {\n  // ad_name convention: campaign__variantId__placement\n  const variantId = (r.ad_name || '').split('__')[1] || r.ad_id;\n  const v = byVariant[variantId] ||= {\n    variantId, adIds: [], campaignId: r.campaign_id,\n    impressions: 0, clicks: 0, spend: 0, conversions: 0, revenue: 0\n  };\n  if (!v.adIds.includes(r.ad_id)) v.adIds.push(r.ad_id);\n  v.impressions += Number(r.impressions || 0);\n  v.clicks      += Number(r.clicks || 0);\n  v.spend       += Number(r.spend || 0);\n  v.conversions += Number(r.conversions || 0);\n  v.revenue     += Number(r.revenue || r.payout || 0);\n}\n\nreturn Object.values(byVariant).map(v => {\n  const ctr  = v.impressions ? v.clicks / v.impressions : 0;\n  const cvr  = v.clicks ? v.conversions / v.clicks : 0;\n  const cpa  = v.conversions ? v.spend / v.conversions : null;\n  const roas = v.spend ? v.revenue / v.spend : 0;\n  const epc  = v.clicks ? v.revenue / v.clicks : 0;\n  return { json: { ...v,\n    ctr, cvr, cpa, roas, epc,\n    targetRoas: TARGET_ROAS,\n    // Below the volume floor nothing is decided \u2014 noise is not a signal.\n    hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,\n    evaluatedAt: new Date().toISOString()\n  }};\n});"
+        "jsCode": "// Join spend (ad platform) to revenue (affiliate network) on ad_id <-> sub_id, then\n// roll up to one record per creative variant with the metrics a buyer decides on.\nconst MIN_IMPRESSIONS = Number($env.DCO_MIN_IMPRESSIONS || 1000);\nconst TARGET_ROAS     = Number($env.DCO_TARGET_ROAS || 1.3);\n\n// Each HTTP item is one API page ({ data: [...] }); flatten pages into rows.\nconst rowsOf = node => $(node).all().flatMap(i => i.json.data || i.json.conversions || [i.json]);\nconst spendRows = rowsOf('Fetch Ad Platform Insights');\nconst revenueBySub = {};\nfor (const r of rowsOf('Fetch Affiliate Conversions')) {\n  const k = String(r.sub_id || '');\n  const acc = revenueBySub[k] ||= { conversions: 0, revenue: 0 };\n  acc.conversions += Number(r.conversions || 0);\n  acc.revenue     += Number(r.revenue || r.payout || 0);\n}\n\nconst byVariant = {};\nfor (const r of spendRows) {\n  // ad_name convention: campaign__variantId__placement\n  const variantId = (r.ad_name || '').split('__')[1] || r.ad_id;\n  const v = byVariant[variantId] ||= {\n    variantId, adIds: [], adSetId: r.adset_id, campaignId: r.campaign_id,\n    isControl: variantId.endsWith('_control'), currentBudget: Number(r.daily_budget || 0),\n    impressions: 0, clicks: 0, spend: 0, conversions: 0, revenue: 0\n  };\n  if (!v.adIds.includes(r.ad_id)) v.adIds.push(r.ad_id);\n  const rev = revenueBySub[String(r.ad_id)] || { conversions: 0, revenue: 0 };\n  v.impressions += Number(r.impressions || 0);\n  v.clicks      += Number(r.clicks || 0);\n  v.spend       += Number(r.spend || 0);\n  v.conversions += rev.conversions;\n  v.revenue     += rev.revenue;\n}\n\nreturn Object.values(byVariant).map(v => {\n  const ctr  = v.impressions ? v.clicks / v.impressions : 0;\n  const cvr  = v.clicks ? v.conversions / v.clicks : 0;\n  const cpa  = v.conversions ? v.spend / v.conversions : null;\n  const roas = v.spend ? v.revenue / v.spend : 0;\n  const epc  = v.clicks ? v.revenue / v.clicks : 0;\n  return { json: { ...v,\n    ctr, cvr, cpa, roas, epc,\n    targetRoas: TARGET_ROAS,\n    // Below the volume floor nothing is decided: noise is not a signal.\n    hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,\n    evaluatedAt: new Date().toISOString()\n  }};\n});"
       }
     },
     {
@@ -195,11 +182,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.hasEnoughData}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "53d4435b-3466-5057-99f7-ecb75087816c"
             }
           ],
           "combinator": "and"
@@ -216,9 +204,10 @@
         -110
       ],
       "parameters": {
-        "command": "=python3 /data/scripts/ab_significance.py --variants '{{ JSON.stringify($items().map(i => i.json)).replaceAll(\"'\", \"\") }}' --metric cvr --alpha 0.05"
+        "command": "=python3 /data/scripts/ab_significance.py --variants '{{ JSON.stringify($input.all().map(i => i.json)).replaceAll(\"'\", \"\") }}' --metric cvr --alpha 0.05"
       },
-      "notes": "Two-proportion z-test against the campaign control, with a\nBonferroni correction for the number of variants under test.\nWithout this you are just chasing noise."
+      "notes": "Two-proportion z-test against the campaign control, with a\nBonferroni correction for the number of variants under test.\nWithout this you are just chasing noise.",
+      "executeOnce": true
     },
     {
       "id": "1d3483c2-7142-4cc4-9c81-4a97d3ca7553",
@@ -230,7 +219,7 @@
         -110
       ],
       "parameters": {
-        "jsCode": "let res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`ab_significance.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\n// res.variants[] carries { variantId, pValue, significant, lift, decision }\nreturn res.variants.map(v => ({ json: v }));"
+        "jsCode": "let res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`ab_significance.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\n// res.variants[] carries { variantId, adId, adSetId, pValue, significant, lift, decision, ... }\nreturn res.variants.map(v => {\n  // Never scale a budget we can't read: 0 * 1.2 would set the ad set to zero.\n  if (v.decision === 'scale' && !(Number(v.currentBudget) > 0)) {\n    return { json: { ...v, decision: 'hold', reason: 'scale blocked: current budget unknown' } };\n  }\n  return { json: v };\n});"
       }
     },
     {
@@ -317,7 +306,7 @@
       "id": "ee41a949-3fef-4a66-9c98-69aaa91283fc",
       "name": "Scale Winner Budget",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         1760,
         -260
@@ -338,20 +327,18 @@
           ]
         },
         "options": {
-          "timeout": 30000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 3
-          }
+          "timeout": 30000
         }
       },
-      "notes": "Budget steps up by 20% per cycle, never more. Doubling a winning\nad set overnight resets learning and usually kills the winner."
+      "notes": "Budget steps up by 20% per cycle, never more. Doubling a winning\nad set overnight resets learning and usually kills the winner.",
+      "retryOnFail": true,
+      "maxTries": 3
     },
     {
       "id": "a947ea22-abbf-4b6e-bddf-e0c202d6d66a",
       "name": "Pause Losing Ad",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         1760,
         -110
@@ -372,19 +359,17 @@
           ]
         },
         "options": {
-          "timeout": 30000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 3
-          }
+          "timeout": 30000
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3
     },
     {
       "id": "0e6a00b2-4ad9-48ff-872a-f23fe3e42f70",
       "name": "Request Replacement Creative",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4,
+      "typeVersion": 4.5,
       "position": [
         1980,
         -110
@@ -393,7 +378,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.CREATIVE_SHEET_ID}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -404,14 +389,17 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "briefId": "=auto_{{$json.variantId}}_{{$now.toFormat('yyyyLLdd')}}",
-            "campaign": "={{$json.campaignId}}",
-            "subject": "={{$json.winningAngle || 'refresh of paused variant'}}",
+            "briefId": "=auto_{{$('Parse Test Result').item.json.variantId}}_{{$now.toFormat('yyyyLLdd')}}",
+            "campaign": "={{$('Parse Test Result').item.json.campaignId}}",
+            "subject": "={{$('Parse Test Result').item.json.winningAngle || 'refresh of paused variant'}}",
             "status": "queued",
             "requestedBy": "dco_engine",
-            "reason": "=paused: cvr {{$json.cvr}} vs control, p={{$json.pValue}}"
-          }
-        }
+            "reason": "=paused: cvr {{$('Parse Test Result').item.json.cvr}} vs control, p={{$('Parse Test Result').item.json.pValue}}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -435,7 +423,7 @@
       "id": "9d2dde0b-91f0-47c1-8f8e-6cf29d9f7861",
       "name": "Log Decision",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         2220,
         -110
@@ -444,7 +432,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -455,18 +443,22 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "variantId": "={{$json.variantId}}",
-            "decision": "={{$json.decision}}",
-            "ctr": "={{$json.ctr}}",
-            "cvr": "={{$json.cvr}}",
-            "cpa": "={{$json.cpa}}",
-            "roas": "={{$json.roas}}",
-            "epc": "={{$json.epc}}",
-            "pValue": "={{$json.pValue}}",
-            "lift": "={{$json.lift}}",
-            "decidedAt": "={{$now.toISO()}}"
-          }
-        }
+            "variantId": "={{$('Parse Test Result').item.json.variantId}}",
+            "decision": "={{$('Parse Test Result').item.json.decision}}",
+            "ctr": "={{$('Parse Test Result').item.json.ctr}}",
+            "cvr": "={{$('Parse Test Result').item.json.cvr}}",
+            "cpa": "={{$('Parse Test Result').item.json.cpa}}",
+            "roas": "={{$('Parse Test Result').item.json.roas}}",
+            "epc": "={{$('Parse Test Result').item.json.epc}}",
+            "pValue": "={{$('Parse Test Result').item.json.pValue}}",
+            "lift": "={{$('Parse Test Result').item.json.lift}}",
+            "decidedAt": "={{$now.toISO()}}",
+            "reason": "={{ $('Parse Test Result').item.json.reason }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -479,7 +471,7 @@
       "id": "b6e73818-7dc2-4c0b-b354-4e54aa4d0983",
       "name": "Log Still Learning",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1080,
         140
@@ -488,7 +480,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -504,8 +496,11 @@
             "impressions": "={{$json.impressions}}",
             "clicks": "={{$json.clicks}}",
             "decidedAt": "={{$now.toISO()}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -518,7 +513,7 @@
       "id": "7ff2d166-6018-4a5f-a325-2c04682141a0",
       "name": "Post Buying Report",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         2440,
         -110
@@ -532,14 +527,16 @@
           "value": "#media-buying",
           "mode": "name"
         },
-        "text": "=:chart_with_upwards_trend: *DCO cycle complete*\n`{{$json.variantId}}` -> *{{$json.decision}}*  |  ROAS {{$json.roas}} (target {{$json.targetRoas}})  |  CPA {{$json.cpa}}  |  p={{$json.pValue}}"
+        "text": "=:chart_with_upwards_trend: *DCO cycle complete*\n{{ $('Parse Test Result').all().map(i => '- ' + i.json.variantId + ' -> *' + i.json.decision + '* | ROAS ' + Number(i.json.roas).toFixed(2) + ' (target ' + i.json.targetRoas + ') | p=' + i.json.pValue).join(String.fromCharCode(10)) }}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
           "id": "slack_cred6",
           "name": "Slack - Growth (demo)"
         }
-      }
+      },
+      "executeOnce": true
     },
     {
       "id": "2face8e0-9add-4881-88fe-28dc62ecee60",
@@ -556,7 +553,7 @@
       "id": "2511a4fc-9566-4404-9d3d-ceaa47418580",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         180,
         340
@@ -570,7 +567,8 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: DCO Engine failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+        "text": "=:x: DCO Engine failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -601,7 +599,7 @@
       "main": [
         [
           {
-            "node": "Join Spend + Revenue",
+            "node": "Wait For Both Pulls",
             "type": "main",
             "index": 0
           }
@@ -612,20 +610,9 @@
       "main": [
         [
           {
-            "node": "Join Spend + Revenue",
+            "node": "Wait For Both Pulls",
             "type": "main",
             "index": 1
-          }
-        ]
-      ]
-    },
-    "Join Spend + Revenue": {
-      "main": [
-        [
-          {
-            "node": "Compute Variant Metrics",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -766,6 +753,17 @@
         [
           {
             "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Both Pulls": {
+      "main": [
+        [
+          {
+            "node": "Compute Variant Metrics",
             "type": "main",
             "index": 0
           }

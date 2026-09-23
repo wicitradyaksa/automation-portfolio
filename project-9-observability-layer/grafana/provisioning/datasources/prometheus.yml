@@ -1,0 +1,13 @@
+# Provisioned so the dashboard works on first boot rather than needing someone
+# to click through a setup wizard. The uid must match ${DS_PROMETHEUS} in
+# grafana/dashboard.json.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: DS_PROMETHEUS
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

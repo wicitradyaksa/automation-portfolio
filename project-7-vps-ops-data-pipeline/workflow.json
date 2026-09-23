@@ -49,7 +49,8 @@
       "parameters": {
         "resource": "command",
         "command": "bash /opt/ops/vps_healthcheck.sh --json",
-        "cwd": "/opt/ops"
+        "cwd": "/opt/ops",
+        "operation": "execute"
       },
       "credentials": {
         "sshPassword": {
@@ -91,11 +92,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.diskPressure}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "04b308d5-a36b-5553-b20d-7bf20004ffdc"
             }
           ],
           "combinator": "and"
@@ -114,7 +116,8 @@
       "parameters": {
         "resource": "command",
         "command": "docker system prune -af --filter 'until=168h' && journalctl --vacuum-time=7d",
-        "cwd": "/opt/ops"
+        "cwd": "/opt/ops",
+        "operation": "execute"
       },
       "credentials": {
         "sshPassword": {
@@ -136,7 +139,8 @@
       "parameters": {
         "resource": "command",
         "command": "bash /opt/ops/backup_volumes.sh --retain 7 --json",
-        "cwd": "/opt/ops"
+        "cwd": "/opt/ops",
+        "operation": "execute"
       },
       "credentials": {
         "sshPassword": {
@@ -177,11 +181,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.backupOk}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "1d043257-0681-5a8b-959a-1c32537ad60e"
             }
           ],
           "combinator": "and"
@@ -200,7 +205,8 @@
       "parameters": {
         "resource": "command",
         "command": "python3 /opt/ops/etl_load.py --since-hours 24 --target postgres --json",
-        "cwd": "/opt/ops"
+        "cwd": "/opt/ops",
+        "operation": "execute"
       },
       "credentials": {
         "sshPassword": {
@@ -276,11 +282,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.dqPassed}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "be57620a-8ece-5245-8398-ed75042ad084"
             }
           ],
           "combinator": "and"
@@ -291,7 +298,7 @@
       "id": "3b00f1aa-e9aa-41f2-b122-880b44b950ea",
       "name": "Log Nightly Run",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         2580,
         -180
@@ -300,7 +307,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.OPS_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -311,16 +318,19 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "date": "={{$now.toISODate()}}",
-            "diskUsedPct": "={{$json.disk_used_pct}}",
-            "memUsedPct": "={{$json.mem_used_pct}}",
-            "backupArchive": "={{$json.archive}}",
-            "backupBytes": "={{$json.bytes}}",
-            "rowsLoaded": "={{$json.rows_today}}",
-            "dqPassed": "={{$json.dqPassed}}",
+            "date": "={{ $now.toISODate() }}",
+            "diskUsedPct": "={{ $('Parse Health JSON').first().json.disk_used_pct }}",
+            "memUsedPct": "={{ $('Parse Health JSON').first().json.mem_used_pct }}",
+            "backupArchive": "={{ $('Verify Backup').first().json.archive }}",
+            "backupBytes": "={{ $('Verify Backup').first().json.bytes }}",
+            "rowsLoaded": "={{ $('Assert Data Quality').first().json.rows_today }}",
+            "dqPassed": "={{ $('Assert Data Quality').first().json.dqPassed }}",
             "status": "ok"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -333,7 +343,7 @@
       "id": "84a143a6-e88f-4ed6-bb1a-3bb030b1f953",
       "name": "Post Nightly Digest",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         2800,
         -180
@@ -347,7 +357,8 @@
           "value": "#ops",
           "mode": "name"
         },
-        "text": "=:crescent_moon: *Nightly run complete*\nDisk {{$json.disk_used_pct}}%  |  Mem {{$json.mem_used_pct}}%  |  Backup {{$json.archive}}  |  {{$json.rows_today}} rows loaded, DQ passed."
+        "text": "=:crescent_moon: *Nightly run complete*\nDisk {{ $('Parse Health JSON').first().json.disk_used_pct }}%  |  Mem {{ $('Parse Health JSON').first().json.mem_used_pct }}%  |  Backup {{ $('Verify Backup').first().json.archive }}  |  {{ $('Assert Data Quality').first().json.rows_today }} rows loaded, DQ passed.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -383,7 +394,7 @@
       "id": "3baa8996-2716-4cb7-87d6-66da399a3e09",
       "name": "Alert Data Quality Failure",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         2580,
         120
@@ -397,7 +408,8 @@
           "value": "#ops",
           "mode": "name"
         },
-        "text": "=:no_entry: *Nightly load quarantined* \u2014 {{$json.dqFailures}}. Today's rows moved to `events_quarantine`; dashboards are still on yesterday's data."
+        "text": "=:no_entry: *Nightly load quarantined* \u2014 {{$('Assert Data Quality').item.json.dqFailures}}. Today's rows moved to `events_quarantine`; dashboards are still on yesterday's data.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -410,7 +422,7 @@
       "id": "6ca1f6a8-ed71-4f1c-9571-bb52a2d46e26",
       "name": "Alert Backup Failure",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1480,
         140
@@ -424,7 +436,8 @@
           "value": "#ops",
           "mode": "name"
         },
-        "text": "=:floppy_disk: *Backup verification failed* on {{$json.host}} \u2014 archive `{{$json.archive}}` ({{$json.bytes}} bytes). ETL was skipped; fix before the next cycle."
+        "text": "=:floppy_disk: *Backup verification failed* on {{$json.host}} \u2014 archive `{{$json.archive}}` ({{$json.bytes}} bytes). ETL was skipped; fix before the next cycle.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -445,7 +458,8 @@
       "parameters": {
         "resource": "command",
         "command": "df --output=pcent / | tail -1 | tr -dc '0-9'",
-        "cwd": "/opt/ops"
+        "cwd": "/opt/ops",
+        "operation": "execute"
       },
       "credentials": {
         "sshPassword": {
@@ -477,7 +491,8 @@
               "operator": {
                 "type": "number",
                 "operation": "gt"
-              }
+              },
+              "id": "09936a58-2495-5a2e-898c-8ff287b9880a"
             }
           ],
           "combinator": "and"
@@ -488,7 +503,7 @@
       "id": "4debaec1-0cf5-436b-ae5e-cc5106367d6c",
       "name": "Escalate Disk Alert",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1480,
         -300
@@ -502,7 +517,8 @@
           "value": "#ops",
           "mode": "name"
         },
-        "text": "=:rotating_light: Disk still at {{$json.stdout}}% after an automatic prune \u2014 needs a human. Largest offenders won't clear themselves."
+        "text": "=:rotating_light: Disk still at {{$json.stdout}}% after an automatic prune \u2014 needs a human. Largest offenders won't clear themselves.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -537,7 +553,7 @@
       "id": "309d3442-3210-44b4-94ba-dbeb11a8c6c3",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         180,
         340
@@ -551,7 +567,8 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: VPS Ops & Data Pipeline failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+        "text": "=:x: VPS Ops & Data Pipeline failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {

@@ -1,0 +1,66 @@
+# The observability stack: exporter + Prometheus + Grafana.
+#
+#   docker compose up -d
+#   curl localhost:9109/demo      # generate traffic so the dashboards have shape
+#   open http://localhost:3000    # Grafana, admin / admin
+#
+# This runs alongside the n8n compose stack in the repository root.
+
+services:
+  observability:
+    build: .
+    container_name: n8n-observability
+    ports:
+      - "9109:9109"
+    environment:
+      OBS_PORT: "9109"
+    restart: unless-stopped
+    healthcheck:
+      # Exercises the real endpoint rather than just checking the process is
+      # alive. A python process that is up and not serving is the failure this
+      # is supposed to catch.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:9109/healthz',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: n8n-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Without a retention setting the volume grows until the disk fills,
+      # which is how a monitoring stack becomes the outage.
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    depends_on:
+      - observability
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: n8n-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboard.json:/var/lib/grafana/dashboards/n8n-estate.json:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

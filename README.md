@@ -1,194 +1,193 @@
-# Automation Engineering Portfolio
+# ⚡ n8n Workflow Automation Portfolio: Production Patterns, Not Tutorials
 
-Hi, I'm **Ida Bagus Wicitra Dyaksa** (Dyaksa) — I build automation that survives contact with reality. This repo is seven self-contained n8n workflows covering operations, media production, generative AI, and paid-media optimisation, plus the Bash and Python that does the actual work behind them.
+[![n8n](https://img.shields.io/badge/n8n-7%20importable%20workflows-FF6D5A?logo=n8n)](#-the-n8n-workflows)
+[![Lint](https://img.shields.io/badge/workflow%20lint-passing-brightgreen)](./scripts/lint_workflows.py)
+[![Tests](https://img.shields.io/badge/Python%20tests-223_passing-brightgreen)](./run_tests.py)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Before this, I spent two years in operations at **BAIADA** (Tamworth, Australia) keeping a high-volume production and logistics operation running to schedule, and six months before that in production at **Primo Foods** (Sydney). Both roles were built on the same thing I now build with n8n: repeatable processes, tight tolerances, and no patience for a step that only works if someone remembers to do it by hand. I hold a degree in Maritime Transportation Engineering from Institut Teknologi Sepuluh Nopember (ITS), where I worked with process simulation and system dynamics modelling (Powersim) — the same systems thinking I now apply to workflow design.
+> **Ida Bagus Wicitra Dyaksa (Dyaksa): n8n & AI Workflow Automation Engineer.** I build event-driven n8n workflows that connect REST APIs, webhooks, databases and AI services, and I extend n8n with JavaScript Code Nodes and Python/Bash services where the built-in nodes stop. Every workflow here validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human.
 
-## The thread running through all seven
+**7 importable n8n workflows · 126 nodes · 3 companion Python projects · 223 tests · a linter for the workflow JSON.** `py run_tests.py` runs all of it, with nothing to install.
 
-Connecting app A to app B is the easy part, and it's not what breaks at 3am. Every workflow here is built around the branch where something goes wrong: the data is malformed, the API is rate-limited, the GPU queue is wedged, the render produced a 0-byte file, the backup "succeeded" and is empty, the metric that looks like a winner is sampling noise.
+---
 
-So there are three rules the whole repo follows:
+## 🧭 The Thread Running Through All of It
 
-1. **Exit code 0 is not evidence that a job did its work.** Every stage verifies its own output — `ffprobe` the render, checksum-read the archive, assert row counts after the load.
-2. **Every workflow has a defined failure path and an `errorTrigger`.** A workflow that fails silently is worse than no workflow at all.
-3. **Refusing to act is a feature.** Two of these deliberately do nothing when the evidence is thin, because automation that acts on noise destroys things faster than a human can.
+Connecting app A to app B is the easy part, and it's not what breaks at 3am. Everything here is built around the branch where something goes wrong: the payload is malformed, the API is rate-limited, the GPU queue is wedged, the render is a 0-byte file, the backup "succeeded" and is empty, or the winning ad is sampling noise.
 
-## The projects
+Four rules the whole repo follows:
 
-### Operations & integration
+1. **Exit code 0 is not evidence that a job did its work.** Every stage verifies its own output: `ffprobe` the render, checksum the archive, assert row counts after the load.
+2. **Every workflow has a defined failure path and an Error Trigger.** A workflow that fails silently is worse than no workflow.
+3. **Refusing to act is a feature.** Two workflows deliberately do nothing when the evidence is thin.
+4. **A claim you can't check is not evidence.** The OAuth2/rate-limit logic has tests, the observability has an endpoint you can curl, and the ROI numbers are regenerated from raw data by a script.
 
-| # | Project | What it does | Core skills |
-|---|---------|--------------|-------------|
-| 1 | **[Lead Intake & CRM Sync](./project-1-lead-intake-crm-sync)** | Webhook accepts leads from any form or landing page, validates and de-duplicates them against a CRM, alerts sales in Slack and auto-replies to the prospect. | Webhooks, REST APIs, data validation, idempotency, system integration |
-| 2 | **[Invoice Intake & Validation Pipeline](./project-2-invoice-processing-pipeline)** | Watches an inbox, extracts and parses invoice PDFs, routes each to auto-approval, manager approval, or manual review by rule. | Document parsing, conditional business logic, approval workflows, structured logging |
-| 3 | **[Uptime Monitor & Auto-Remediation](./project-3-uptime-monitor-auto-remediation)** | Polls health endpoints, attempts a container restart before paging on-call, logs every incident. | Docker, scheduled jobs, escalation logic, observability |
+---
 
-### Media & content automation
+## 🔧 The n8n Workflows
 
-| # | Project | What it does | Core skills |
-|---|---------|--------------|-------------|
-| 4 | **[Media Render Farm (FFmpeg)](./project-4-media-render-farm)** | Expands one master video into every ad format × hook variant, transcodes serially through FFmpeg, then `ffprobe`s each output and rejects anything that doesn't match spec. | FFmpeg, video processing, Bash, Docker, task automation, media automation |
-| 5 | **[Generative Creative Factory (ComfyUI)](./project-5-generative-creative-factory)** | Builds the ComfyUI API-format node graph from a spreadsheet row, queues it on the GPU, polls with a hard give-up, post-processes every output into ad placements in Python. | Generative AI workflows, ComfyUI/SDXL, Python, Pillow, async job polling, automated content workflows |
+Each folder holds a `workflow.json` you can import straight into n8n, plus a README built on the same template: business impact, Mermaid architecture, technical highlights, env vars, import steps, and an edge-case table.
 
-### Growth & performance
+| # | Workflow | What it does | Key n8n mechanics |
+|---|---|---|---|
+| 1 | **[Lead Intake & CRM Sync](./project-1-lead-intake-crm-sync)** | Any form → normalized, de-duplicated CRM row → Slack alert + prospect auto-reply, with a synchronous 200/400 response | Webhook + Respond to Webhook, Code Node normalization, idempotent upsert, *Always Output Data* |
+| 2 | **[Invoice Intake & Validation](./project-2-invoice-processing-pipeline)** | IMAP → PDF text → regex field parser → auto-approve / manager approval / human review | IMAP trigger, Extract From File, confidence gating, policy-as-one-parameter |
+| 3 | **[Uptime Monitor & Auto-Remediation](./project-3-uptime-monitor-auto-remediation)** | 5-minute health checks → `docker restart` → verify → self-heal notice or on-call escalation | Full-response HTTP with *Never Error*, *On Error → Continue*, Wait, tiered Slack |
+| 4 | **[Media Render Farm (FFmpeg)](./project-4-media-render-farm)** | One master video → every format × hook, rendered serially and `ffprobe`-verified before release | Async 202 ack, Split In Batches loop, Execute Command, binary multipart upload with retry |
+| 5 | **[Generative Creative Factory (ComfyUI)](./project-5-generative-creative-factory)** | Spreadsheet brief → ComfyUI graph built in a Code Node → async polling with a hard give-up → placements | Programmatic API payloads, Wait-based polling loop, workflow-to-workflow webhooks |
+| 6 | **[DCO Engine](./project-6-dco-engine)** | Paginated ad + affiliate pulls → per-variant metrics → Bonferroni-corrected test → scale / pause / hold | HTTP pagination, retries ×4, Merge, Switch, capped budget mutations |
+| 7 | **[VPS Ops & Nightly Data Pipeline](./project-7-vps-ops-data-pipeline)** | JSON-over-SSH healthcheck → self-heal → verified backup → idempotent ETL → SQL data-quality gate | SSH, Postgres, gated branches, quarantine instead of commit |
 
-| # | Project | What it does | Core skills |
-|---|---------|--------------|-------------|
-| 6 | **[DCO Engine](./project-6-dco-engine)** | Joins ad spend to affiliate revenue, computes per-variant CTR/CVR/CPA/ROAS/EPC, runs a significance test, then scales, pauses, or holds — and queues replacement creative for anything it pauses. | DCO, A/B testing, media buying, performance marketing, programmatic & affiliate APIs, Python statistics |
+### Companion projects: the code behind the nodes
 
-### Infrastructure & data
+| # | Project | Why it's here | Tests |
+|---|---|---|---|
+| 8 | **[Integration Kit](./project-8-integration-kit)** | What an n8n node does for you, with the node removed: OAuth2 single-flight refresh, HMAC webhooks with replay window, cursor pagination with loop guards, `Retry-After` + jittered backoff. It's the service a workflow calls through an HTTP Request node when no built-in node fits. | 83 |
+| 9 | **[Observability Layer](./project-9-observability-layer)** | Correlation IDs across workflow hops, a Prometheus exporter, 7 alert rules (including "this workflow silently stopped"), a Grafana dashboard and an on-call runbook for workflows 1–7. | 105 |
+| 10 | **[ROI Case Study](./project-10-migration-case-study)** | Before/after impact of workflow 2, with every number regenerated from raw CSVs and tests that fail if the prose drifts from the data. **The dataset is synthetic**, and the README says so up front. | 35 |
 
-| # | Project | What it does | Core skills |
-|---|---------|--------------|-------------|
-| 7 | **[VPS Ops & Nightly Data Pipeline](./project-7-vps-ops-data-pipeline)** | SSHes into an Ubuntu VPS, runs a Bash healthcheck returning JSON, self-heals disk pressure, verifies the backup actually contains bytes, runs a Python ETL into Postgres, then asserts data quality and quarantines a bad load. | Linux/Ubuntu VPS, Bash, Python, data pipelines, PostgreSQL, scripting, system integration |
+---
 
-Each project folder holds its own `README.md` (the case study: problem, architecture, trade-offs, what I'd improve) and a `workflow.json` you can import straight into n8n.
+## 🔗 They Connect to Each Other
 
-## They connect to each other
+Workflows 4, 5 and 6 form one loop, not three demos:
 
-Projects 4, 5 and 6 are one loop, not three demos:
-
-```
-   Creative brief (spreadsheet row)
-              │
-              ▼
-   [5] Generative Creative Factory ──► static placements
-              │
-              ▼  (briefs with a master video)
-   [4] Media Render Farm ──────────► asset manifest
-              │
-              ▼
-   [6] DCO Engine ──► test ──► scale winners / pause losers
-              │
-              └──────► queues a replacement brief back into [5]
+```mermaid
+graph LR
+    B[Creative brief<br/>sheet row] --> P5[5 · Generative Creative Factory]
+    P5 -- briefs with a master video --> P4[4 · Media Render Farm]
+    P4 -. variants launched as ads .-> P6[6 · DCO Engine]
+    P6 -- pause a loser → queue a replacement brief --> B
 ```
 
-A paused creative writes a new row into the same sheet Project 5 reads at 06:00. The pipeline refills itself, and the human's job moves from exporting files and checking dashboards to deciding what's worth testing.
+A paused creative writes a new row into the same sheet Workflow 5 reads at 06:00. The pipeline refills itself, and the human's job moves from exporting files and checking dashboards to deciding what's worth testing.
 
-## Skills coverage
+The companion projects wrap around the estate: **8** is the integration service a workflow can call over HTTP, **9** instruments workflows 1–7, and **10** measures workflow 2.
 
-Where to look for each thing, and what actually demonstrates it:
+---
+
+## 🧰 Skills Coverage
 
 | Skill | Where | What demonstrates it |
 |---|---|---|
-| Workflow Automation | 1–7 | Seven complete n8n workflows, each with explicit failure branches |
-| Process Automation | 1, 2, 7 | Manual approval and ops processes mapped and replaced end to end |
-| API Integration | 1, 5, 6 | Webhooks, Bearer/API-key auth, pagination, retry with backoff |
-| System Integration | 4↔5↔6, 7 | Workflows calling each other's webhooks; SSH into a remote host |
-| Scripting | 4, 6, 7 | Six standalone Bash/Python scripts, each runnable from a terminal |
-| Data Pipelines | 7 | Log → normalise → idempotent upsert → Postgres → DQ assertions |
-| Task Automation | 3, 4, 7 | Scheduled, queued and batched jobs with self-healing |
-| **Python** | 5, 6, 7 | `postprocess_creative.py`, `ab_significance.py`, `etl_load.py` |
-| **Bash / Shell** | 4, 7 | `render_variant.sh`, `vps_healthcheck.sh`, `backup_volumes.sh` — strict mode, real exit codes |
-| **Docker** | 3, 4, 7 | Compose stack, container restart remediation, volume backup via throwaway container |
-| **Linux / Ubuntu VPS** | 7 | `df`, `/proc/meminfo`, `journalctl`, `systemctl`, `openssl s_client` |
-| **REST APIs** | 1, 5, 6 | Consuming and exposing; pagination, retries, idempotency |
-| **Git** | repo | Everything here is version-controlled and reviewable |
-| Media Automation | 4, 5 | Master video → variant matrix; generation → placement export |
-| Video Processing | 4 | Scale/pad/SAR, loudness normalisation, faststart, thumbnails |
-| **FFmpeg** | 4 | The filter chain and encode settings in `render_variant.sh` |
-| Automated Content Workflows | 4, 5 | Spreadsheet brief → finished, verified creative with no manual step |
-| Generative AI Workflows | 5 | ComfyUI / Stable Diffusion (SDXL) API-format graph built in code; async polling |
-| **Dynamic Creative Optimization (DCO)** | 4 → 6 | Variant matrix generation feeding an automated, measured performance loop |
-| Media Buying | 6 | Budget scaling, ad pausing, ROAS floors via platform API |
-| Performance Marketing | 6 | CPA/ROAS/EPC as the decision metrics, not impressions |
-| Programmatic Advertising | 6 | Programmatic budget and status changes through the ads API |
-| Affiliate Marketing | 6 | `sub_id` join between click and payout; EPC tracking |
-| Traffic Acquisition | 1, 6 | Lead capture at intake; paid acquisition optimisation at the top |
-| **A/B Testing** | 6 | Two-proportion z-test with Bonferroni correction, volume floors |
-| Campaign Optimization | 6 | Capped +20% scale steps, hard ROAS floor, auto creative refresh |
+| **n8n workflow design** | 1–7 | Seven workflows, each with explicit failure branches and an Error Trigger |
+| **Webhooks (sync & async)** | 1, 4, 5 | 200/400 responses, 202 ack-then-process, workflow-to-workflow calls |
+| **Custom code (JS Code Nodes)** | 1–7 | Normalization, regex extraction, metric roll-ups, programmatic API payloads |
+| **REST APIs, pagination, retries** | 4, 5, 6 | HTTP Request pagination, node-level Retry On Fail, Bearer/API-key auth |
+| **OAuth2, HMAC, rate limiting** | 8 | Single-flight refresh proved under 8 threads, replay window, `Retry-After` in both formats |
+| **Loops & polling** | 4, 5 | Split In Batches with failure-continues, elapsed-time give-up on async jobs |
+| **Databases** | 7, 12 | Postgres upserts, SQL DQ assertions, quarantine; Sheets as an operational store |
+| **Generative AI** | 5 | ComfyUI / SDXL API graph built in code, async job polling |
+| **Scripting (Python / Bash)** | 4–7 | Standalone scripts with JSON output and typed exit codes, called from Execute Command / SSH |
+| **Docker & Linux ops** | 3, 7 | Container self-heal, verified volume backups, VPS healthcheck |
+| **Observability & alerting** | 10 | Prometheus exposition, staleness alerts, correlation IDs, runbook |
+| **Statistics & business impact** | 6, 12 | Two-proportion z-test with Bonferroni, Wilson intervals, payback modelling |
 
-## Run it yourself
+---
+
+## 🚀 Run It Yourself
+
+### Check everything, with nothing to install
 
 ```bash
 git clone https://github.com/wicitradyaksa/automation-portfolio.git
 cd automation-portfolio
-cp .env.example .env        # fill in a login you'll remember
-docker compose up -d
+py run_tests.py
 ```
 
-Open `http://localhost:5678`, log in, then for each project: **Workflows → Import from File** → that project's `workflow.json`.
+```
+  Integration Kit            ok      83 tests
+  Observability Layer        ok     105 tests
+  Migration Case Study       ok      35 tests
+==============================================================
+223 tests
+All suites passed.
 
-Every workflow references placeholder credentials (`… (demo)` in the credential name) for Google Sheets / Slack / SMTP / IMAP / SSH / Postgres — swap those for your own, or just read the JSON and the README to follow the logic without connecting real accounts.
+n8n workflow lint
+  project-1-lead-intake-crm-sync                ok
+  ...
+  project-7-vps-ops-data-pipeline               ok
+```
 
-The scripts all run standalone, no n8n required:
+The [workflow linter](./scripts/lint_workflows.py) checks every `workflow.json` for dangling connections, `$('Node')` references to nodes that don't exist, `$json` reads straight after a node that replaces the item (the most common n8n data-flow bug), node versions with mismatched parameter shapes, JavaScript syntax errors in Code Nodes, and a missing Error Trigger.
+
+### Run the n8n workflows
 
 ```bash
-# render one variant and verify it
-project-4-media-render-farm/scripts/render_variant.sh \
-    --src master.mp4 --out story.mp4 --w 1080 --h 1920 --hook "Try it free"
+cp .env.example .env        # sheet IDs, API URLs, tokens
+docker compose up -d        # http://localhost:5678, create the owner account on first visit
+```
 
-# see the A/B engine hold a 40% "winner" that isn't significant yet
+Then for each workflow:
+1. **Workflows → Import from File** → that project's `workflow.json`.
+2. Map the placeholder credentials (`… (demo)`) to your own Google Sheets / Slack / SMTP / IMAP / SSH / Postgres credentials.
+3. Open **Workflow Settings → Error Workflow** and select the workflow itself, so its Error Trigger fires.
+
+The compose file passes `.env` through as `$env.*`, re-enables `$env` access and the Execute Command node (both off by default in recent n8n releases), and mounts the scripts used by workflows 4–6.
+
+### The scripts run standalone
+
+```bash
+# see the A/B engine hold a +40% "winner" that isn't significant yet
 python3 project-6-dco-engine/scripts/ab_significance.py \
     --metric cvr --variants "$(cat project-6-dco-engine/fixtures/variants.json)"
 
 # health-check whatever box you're on
 bash project-7-vps-ops-data-pipeline/scripts/vps_healthcheck.sh
+
+# the integration pipeline against fakes: expired token → refresh → rate-limited pull → signed webhook → dedupe
+cd project-8-integration-kit && py -m integration_kit.sync --demo
 ```
 
-## Live site
+---
 
-`index.html` at the repo root is the portfolio site. Enable **GitHub Pages** (Settings → Pages → Source: Deploy from a branch → `main` → `/ (root)`) and it's live at `https://wicitradyaksa.github.io/automation-portfolio/` within a couple of minutes — no build step, it's a single static file.
+## 🌐 Live Site
 
-## Repo structure
+`index.html` at the repo root is the portfolio site. Enable **GitHub Pages** (Settings → Pages → Deploy from a branch → `main` → `/ (root)`) and it's live at `https://wicitradyaksa.github.io/automation-portfolio/`.
+
+---
+
+## 📁 Repo Structure
 
 ```
 automation-portfolio/
-├── index.html                              # the portfolio site (GitHub Pages serves this)
-├── docker-compose.yml                      # spin up a local n8n instance
-├── requirements.txt                        # Python deps for the scripts
-├── .env.example
-├── .gitignore
-├── project-1-lead-intake-crm-sync/
-│   ├── README.md                           # case study
-│   └── workflow.json                       # importable n8n workflow
-├── project-2-invoice-processing-pipeline/
-│   ├── README.md
-│   └── workflow.json
-├── project-3-uptime-monitor-auto-remediation/
-│   ├── README.md
-│   └── workflow.json
-├── project-4-media-render-farm/
-│   ├── README.md
-│   ├── workflow.json
-│   └── scripts/
-│       └── render_variant.sh               # FFmpeg encode + verify
-├── project-5-generative-creative-factory/
-│   ├── README.md
-│   ├── workflow.json
-│   └── scripts/
-│       └── postprocess_creative.py         # download, strip metadata, export placements
-├── project-6-dco-engine/
-│   ├── README.md
-│   ├── workflow.json
-│   ├── fixtures/
-│   │   └── variants.json                   # sample data for the significance test
-│   └── scripts/
-│       └── ab_significance.py              # z-test + scale/pause/hold decisions
-└── project-7-vps-ops-data-pipeline/
-    ├── README.md
-    ├── workflow.json
-    └── scripts/
-        ├── vps_healthcheck.sh              # JSON-emitting server healthcheck
-        ├── backup_volumes.sh               # verified Docker volume backup
-        └── etl_load.py                     # idempotent log → Postgres ETL
+├── index.html                    # portfolio site (GitHub Pages)
+├── docker-compose.yml            # local n8n wired for these workflows
+├── .env.example                  # every $env variable the workflows read
+├── run_tests.py                  # 223 Python tests + the workflow linter
+├── scripts/lint_workflows.py     # static checks for workflow.json exports
+├── docs/phase1-n8n-positioning.md
+├── project-1 … project-7/        # README.md + workflow.json (+ scripts/ where used)
+├── project-8-integration-kit/    # OAuth2, HMAC webhooks, pagination, retries (83 tests)
+├── project-9-observability-layer/  # exporter, alerts, dashboard, runbook (105 tests)
+└── project-10-migration-case-study/ # ROI method, numbers from data (35 tests)
 ```
 
-## What's next on this portfolio
+---
 
-- [ ] Swap placeholder credentials for a real (sandboxed) Google Sheet + Slack workspace and record a 60-second Loom of each workflow actually running
-- [ ] Add real before/after numbers from a live use case — hours saved per week, error rate, turnaround time
-- [ ] Restore-test the Project 7 backups monthly and publish the result, because an untested restore path isn't a backup
-- [ ] Replace the frequentist test in Project 6 with a Beta-Binomial posterior and compare the decisions the two would have made
+## ✅ Honest Status
 
-## License
+* **Workflows 1–7** pass the linter and are written against current n8n node schemas, but they haven't yet been run end to end against live credentials. The first item below fixes that.
+* **Impact figures** in the READMEs are tagged as a real result, a **(benchmark)** from Project 10's synthetic dataset, or a **(design target)**. Nothing untagged is invented.
+* **Project 9's** Docker stack (Prometheus + Grafana) hasn't been started. The exporter itself is verified live.
 
-[MIT](./LICENSE) — use these workflows and scripts freely, including for commercial purposes.
+## 🛣️ What's Next
 
-## Contact
-
-**Ida Bagus Wicitra Dyaksa (Dyaksa)** — [wicitradyaksa@gmail.com](mailto:wicitradyaksa@gmail.com) · [linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129](https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/) · [github.com/wicitradyaksa](https://github.com/wicitradyaksa)
+- [ ] Run each workflow against a sandboxed Google Sheet + Slack workspace and record a 60-second Loom of each.
+- [ ] Replace Project 10's synthetic data with two weeks of real timings.
+- [ ] Add a reusable **retry sub-workflow + dead-letter table** (Execute Workflow + Postgres) and adopt it in workflows 1–7.
+- [ ] Add an **OpenAI structured-extraction node with a confidence gate** to workflow 2, and LLM lead scoring to workflow 1.
+- [ ] Wire workflows 1–7 into Project 9's exporter and publish a Grafana screenshot with real data.
 
 ---
-*These workflows and scripts were built with Claude's help as a working starting point. The architecture, failure handling, and trade-offs documented here are real and the code runs — but read it, run it, and break it yourself before you discuss it in an interview. Every case study has a "why it's built this way" section for exactly that reason.*
+
+## 📄 License
+
+[MIT](./LICENSE). Use these workflows and scripts freely, including commercially.
+
+## 📬 Contact
+
+**Ida Bagus Wicitra Dyaksa (Dyaksa)** · [wicitradyaksa@gmail.com](mailto:wicitradyaksa@gmail.com) · [LinkedIn](https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/) · [GitHub](https://github.com/wicitradyaksa)
+
+---
+*Built with Claude's help as a working starting point. The architecture, failure handling and trade-offs are real, the tests pass, and every README says which claims are verified and which aren't. Read it, run it, and break it yourself before discussing it in an interview.*
