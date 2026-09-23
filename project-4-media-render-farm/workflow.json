@@ -31,7 +31,8 @@
         "path": "render-request",
         "responseMode": "responseNode",
         "options": {}
-      }
+      },
+      "webhookId": "cdee0679-b864-5714-b31a-35534740dceb"
     },
     {
       "id": "e2727c89-92d5-4117-9801-8b982a9b6799",
@@ -50,14 +51,17 @@
       "id": "af4b42a5-ca76-40de-874c-a41ed7dd5d0d",
       "name": "Ack Request",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [
-        160,
-        190
+        380,
+        -220
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { queued: $items().length, assetId: $json.assetId } }}"
+        "responseBody": "={{ { queued: $('Build Render Matrix').all().length, assetId: $json.assetId } }}",
+        "options": {
+          "responseCode": 202
+        }
       }
     },
     {
@@ -87,7 +91,8 @@
         "command": "=bash /data/scripts/render_variant.sh --src '{{$json.sourcePath}}' --out '{{$json.outPath}}' --w {{$json.width}} --h {{$json.height}} --crf {{$json.crf}} --maxrate {{$json.maxrate}} --hook '{{$json.hook}}'",
         "executeOnce": false
       },
-      "notes": "Calls scripts/render_variant.sh \u2014 scale+pad to the target ratio, burn the hook\ntext, normalise loudness to -14 LUFS, faststart for web."
+      "notes": "Calls scripts/render_variant.sh \u2014 scale+pad to the target ratio, burn the hook\ntext, normalise loudness to -14 LUFS, faststart for web.",
+      "onError": "continueRegularOutput"
     },
     {
       "id": "44d5353d-edfd-46da-bc01-ffcb8cc76dcf",
@@ -99,8 +104,10 @@
         -80
       ],
       "parameters": {
-        "command": "=ffprobe -v quiet -print_format json -show_format -show_streams '{{$json.outPath}}'"
-      }
+        "command": "=ffprobe -v quiet -print_format json -show_format -show_streams '{{$('Render One At A Time').item.json.outPath}}'",
+        "executeOnce": false
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "aa49aed8-8dfc-4c98-9ca0-b701699b7f53",
@@ -134,11 +141,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.ok}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "80d04148-50a2-5cd2-8b37-57b4639e188c"
             }
           ],
           "combinator": "and"
@@ -155,16 +163,17 @@
         -180
       ],
       "parameters": {
-        "command": "=ffmpeg -y -ss 00:00:01 -i '{{$json.outPath}}' -frames:v 1 -vf scale={{$json.width}}:{{$json.height}} '{{$json.thumbPath}}'"
+        "command": "=ffmpeg -y -ss 00:00:01 -i '{{$json.outPath}}' -frames:v 1 -vf scale={{$json.width}}:{{$json.height}} '{{$json.thumbPath}}'",
+        "executeOnce": false
       }
     },
     {
       "id": "143dbe78-32eb-4f16-b30e-9686a1c92a66",
       "name": "Upload To Asset Store",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
-        1700,
+        1800,
         -180
       ],
       "parameters": {
@@ -184,30 +193,30 @@
         "bodyParameters": {
           "parameters": [
             {
-              "name": "key",
-              "value": "=renders/{{$json.campaign}}/{{$json.variantId}}.mp4"
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
             },
             {
-              "name": "localPath",
-              "value": "={{$json.outPath}}"
+              "parameterType": "formData",
+              "name": "key",
+              "value": "=renders/{{ $('Validate Render').item.json.campaign }}/{{ $('Validate Render').item.json.variantId }}.mp4"
             }
           ]
         },
         "options": {
-          "timeout": 120000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 3,
-            "waitBetweenTries": 5000
-          }
+          "timeout": 120000
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "id": "325dda00-4ebb-423c-ac2b-eff4fb9de62b",
       "name": "Log To Asset Manifest",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1920,
         -180
@@ -216,7 +225,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -227,18 +236,21 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "variantId": "={{$json.variantId}}",
-            "assetId": "={{$json.assetId}}",
-            "campaign": "={{$json.campaign}}",
-            "ratio": "={{$json.ratio}}",
-            "hook": "={{$json.hook}}",
-            "durationSec": "={{$json.durationSec}}",
-            "bytes": "={{$json.bytes}}",
-            "codec": "={{$json.codec}}",
+            "variantId": "={{$('Validate Render').item.json.variantId}}",
+            "assetId": "={{$('Validate Render').item.json.assetId}}",
+            "campaign": "={{$('Validate Render').item.json.campaign}}",
+            "ratio": "={{$('Validate Render').item.json.ratio}}",
+            "hook": "={{$('Validate Render').item.json.hook}}",
+            "durationSec": "={{$('Validate Render').item.json.durationSec}}",
+            "bytes": "={{$('Validate Render').item.json.bytes}}",
+            "codec": "={{$('Validate Render').item.json.codec}}",
             "status": "ready",
-            "renderedAt": "={{$json.renderedAt}}"
-          }
-        }
+            "renderedAt": "={{$('Validate Render').item.json.renderedAt}}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -251,7 +263,7 @@
       "id": "880ac295-4d3d-4b71-8015-790558759431",
       "name": "Log Failed Render",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1480,
         40
@@ -260,7 +272,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -277,8 +289,11 @@
             "actualWidth": "={{$json.actualWidth}}",
             "actualHeight": "={{$json.actualHeight}}",
             "failedAt": "={{$json.renderedAt}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -291,7 +306,7 @@
       "id": "e9d06e7c-7423-40f5-b35e-60f45432ee61",
       "name": "Alert Creative Ops",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1700,
         40
@@ -305,7 +320,8 @@
           "value": "#creative-ops",
           "mode": "name"
         },
-        "text": "=:film_frames: Render failed for *{{$json.variantId}}* \u2014 {{$json.problems}}. Source: `{{$json.sourcePath}}`"
+        "text": "=:film_frames: Render failed for *{{$('Validate Render').item.json.variantId}}* \u2014 {{$('Validate Render').item.json.problems}}. Source: `{{$('Validate Render').item.json.sourcePath}}`",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -329,7 +345,7 @@
       "id": "7b2a5b97-db38-4cfb-837f-c356181105a1",
       "name": "Post Render Summary",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         2360,
         -80
@@ -343,14 +359,16 @@
           "value": "#creative-ops",
           "mode": "name"
         },
-        "text": "=:white_check_mark: Rendered *{{$json.assetId}}* \u2014 variants now in the asset manifest and ready for the DCO engine to test."
+        "text": "=:white_check_mark: Render batch for *{{ $('Build Render Matrix').first().json.assetId }}* finished: {{ $('Build Render Matrix').all().length }} variants processed. Passing renders are in the Asset Manifest; anything that failed verification is in *Failed Renders*.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
           "id": "slack_cred4",
           "name": "Slack - Creative Ops (demo)"
         }
-      }
+      },
+      "executeOnce": true
     },
     {
       "id": "5e955312-d85e-4fe7-a8d1-4430160c2176",
@@ -367,7 +385,7 @@
       "id": "fb5ddd32-ebcb-4adb-86e5-939ca4c76bdd",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         180,
         300
@@ -381,13 +399,28 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: Media Render Farm failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+        "text": "=:x: Media Render Farm failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
           "id": "slack_cred4",
           "name": "Slack - Creative Ops (demo)"
         }
+      }
+    },
+    {
+      "id": "7c1f7a0e-4a52-4f5e-9d53-2d1b1f9a6e01",
+      "name": "Read Render File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        -180
+      ],
+      "parameters": {
+        "fileSelector": "={{ $('Validate Render').item.json.outPath }}",
+        "options": {}
       }
     }
   ],
@@ -492,7 +525,7 @@
       "main": [
         [
           {
-            "node": "Upload To Asset Store",
+            "node": "Read Render File",
             "type": "main",
             "index": 0
           }
@@ -559,6 +592,17 @@
         [
           {
             "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Render File": {
+      "main": [
+        [
+          {
+            "node": "Upload To Asset Store",
             "type": "main",
             "index": 0
           }

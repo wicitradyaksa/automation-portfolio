@@ -11,7 +11,7 @@
         -320
       ],
       "parameters": {
-        "content": "## Automated Invoice Intake & Validation Pipeline\\nWatches the AP inbox, pulls the PDF text out of each invoice, parses the key fields, routes anything over $1,000 to a manager for approval in Slack, and flags anything it couldn't confidently parse for manual review \u2014 instead of a human opening every attachment.",
+        "content": "## Automated Invoice Intake & Validation Pipeline\nWatches the AP inbox, pulls the PDF text out of each invoice, parses the key fields, routes anything over $1,000 to a manager for approval in Slack, and flags anything it couldn't confidently parse for manual review \u2014 instead of a human opening every attachment.",
         "height": 240,
         "width": 440,
         "color": 5
@@ -21,7 +21,7 @@
       "id": "93640622-ec94-4bdf-a449-129ba245f361",
       "name": "Watch Invoices Inbox",
       "type": "n8n-nodes-base.emailReadImap",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         -40,
         0
@@ -29,6 +29,8 @@
       "parameters": {
         "mailbox": "INBOX",
         "postProcessAction": "read",
+        "format": "simple",
+        "downloadAttachments": true,
         "options": {}
       },
       "credentials": {
@@ -42,7 +44,7 @@
       "id": "e3a914ef-63fa-44c5-a6b5-1231bd39f193",
       "name": "Has PDF Attachment?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         200,
         0
@@ -52,15 +54,16 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "loose"
           },
           "conditions": [
             {
-              "leftValue": "={{Object.keys($binary || {}).length}}",
-              "rightValue": 0,
+              "id": "pdf-mime-check",
+              "leftValue": "={{ $binary.attachment_0?.mimeType ?? '' }}",
+              "rightValue": "pdf",
               "operator": {
-                "type": "number",
-                "operation": "gt"
+                "type": "string",
+                "operation": "contains"
               }
             }
           ],
@@ -79,27 +82,28 @@
       ],
       "parameters": {
         "operation": "pdf",
-        "binaryPropertyName": "attachment_0"
+        "binaryPropertyName": "attachment_0",
+        "options": {}
       }
     },
     {
       "id": "dd267781-5097-466e-b873-35d08052d376",
       "name": "Parse Invoice Fields",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         640,
         -70
       ],
       "parameters": {
-        "jsCode": "// Very small rules-based parser: pulls invoice number, vendor, amount, due date\n// out of the extracted PDF text using regex. Swap for an LLM/OCR call for messier PDFs.\nconst text = $input.first().json.text || '';\n\nconst invoiceNumber = (text.match(/invoice\\s*#?\\s*([A-Z0-9-]{4,})/i) || [])[1] || null;\nconst amountMatch = text.match(/total\\s*(?:due)?\\s*[:\\$]?\\s*([0-9,]+\\.\\d{2})/i);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;\nconst dueDateMatch = text.match(/due\\s*date\\s*[:\\-]?\\s*([0-9]{1,2}\\/[0-9]{1,2}\\/[0-9]{2,4})/i);\nconst vendorMatch = text.match(/^(.*?)\\n/);\n\nconst complete = Boolean(invoiceNumber && amount && dueDateMatch);\n\nreturn [{\n  json: {\n    invoiceNumber,\n    vendor: vendorMatch ? vendorMatch[1].trim() : 'Unknown',\n    amount,\n    dueDate: dueDateMatch ? dueDateMatch[1] : null,\n    complete,\n    receivedAt: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Very small rules-based parser: pulls invoice number, vendor, amount, due date\n// out of the extracted PDF text using regex. Swap for an LLM/OCR call for messier PDFs.\nconst text = $input.first().json.text || '';\n\nconst invoiceNumber = (text.match(/invoice\\s*#?\\s*([A-Z0-9-]{4,})/i) || [])[1] || null;\nconst amountMatch = text.match(/total\\s*(?:due)?\\s*[:\\$]?\\s*([0-9,]+\\.\\d{2})/i);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;\nconst dueDateMatch = text.match(/due\\s*date\\s*[:\\-]?\\s*([0-9]{1,2}\\/[0-9]{1,2}\\/[0-9]{2,4})/i);\nconst vendorMatch = text.match(/^(.*?)\\n/);\n\nconst complete = Boolean(invoiceNumber && amount && dueDateMatch);\n\nreturn [{\n  json: {\n    invoiceNumber,\n    vendor: vendorMatch ? vendorMatch[1].trim() : 'Unknown',\n    amount,\n    dueDate: dueDateMatch ? dueDateMatch[1] : null,\n    complete,\n    receivedAt: new Date().toISOString(),\n    // Kept for the manual-review queue; Sheets cells cap at 50k characters.\n    rawText: text.slice(0, 5000)\n  }\n}];"
       }
     },
     {
       "id": "1824825e-53fa-4b11-b7f8-86c73cb5c285",
       "name": "Fields Complete?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         860,
         -70
@@ -114,11 +118,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.complete}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "52755bfe-a052-553e-a9ef-8e4416216939"
             }
           ],
           "combinator": "and"
@@ -129,7 +134,7 @@
       "id": "4b11080d-162b-4187-8497-a1a8281f4c84",
       "name": "Needs Manager Approval?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         1080,
         -140
@@ -148,7 +153,8 @@
               "operator": {
                 "type": "number",
                 "operation": "gt"
-              }
+              },
+              "id": "4cd12352-edda-5932-9b9e-1aa5415dc2a4"
             }
           ],
           "combinator": "and"
@@ -159,7 +165,7 @@
       "id": "e718ba0c-e2c4-4c36-9ade-2541c900735b",
       "name": "Log To Approval Queue",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1300,
         -220
@@ -168,7 +174,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.FINANCE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -184,8 +190,11 @@
             "amount": "={{$json.amount}}",
             "dueDate": "={{$json.dueDate}}",
             "status": "awaiting_approval"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -198,7 +207,7 @@
       "id": "3595dfad-a994-47fc-8608-8d36ee2816ba",
       "name": "Alert Finance Manager",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1520,
         -220
@@ -212,7 +221,8 @@
           "value": "#finance-approval",
           "mode": "name"
         },
-        "text": "=:heavy_dollar_sign: Invoice *{{$json.invoiceNumber}}* from {{$json.vendor}} for ${{$json.amount}} needs approval (due {{$json.dueDate}})."
+        "text": "=:heavy_dollar_sign: Invoice *{{$('Parse Invoice Fields').item.json.invoiceNumber}}* from {{$('Parse Invoice Fields').item.json.vendor}} for ${{$('Parse Invoice Fields').item.json.amount}} needs approval (due {{$('Parse Invoice Fields').item.json.dueDate}}).",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -225,7 +235,7 @@
       "id": "ba15eb52-ec9f-470f-bcf0-615fed99c23c",
       "name": "Log To Approved Ledger",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1300,
         -70
@@ -234,7 +244,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.FINANCE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -250,8 +260,11 @@
             "amount": "={{$json.amount}}",
             "dueDate": "={{$json.dueDate}}",
             "status": "auto_approved"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -264,7 +277,7 @@
       "id": "d5629bc0-e7e5-4cea-af65-3a79ad777132",
       "name": "Log To Needs Review",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         860,
         80
@@ -273,7 +286,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.FINANCE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -285,11 +298,14 @@
           "mappingMode": "defineBelow",
           "value": {
             "vendorGuess": "={{$json.vendor}}",
-            "extractedText": "={{$json.text}}",
+            "extractedText": "={{ $json.rawText }}",
             "reason": "incomplete_fields",
             "receivedAt": "={{$json.receivedAt}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -302,7 +318,7 @@
       "id": "ca404cbb-6bce-44bc-9be9-8481c7bb5376",
       "name": "Alert Finance Ops",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1080,
         80
@@ -316,7 +332,8 @@
           "value": "#finance-ops",
           "mode": "name"
         },
-        "text": "=:warning: Couldn't fully parse an incoming invoice \u2014 needs manual entry. Check the *Needs Review* sheet."
+        "text": "=:warning: Couldn't fully parse an invoice from *{{ $('Parse Invoice Fields').item.json.vendor }}*. It needs manual entry: check the *Needs Review* sheet.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -351,7 +368,7 @@
       "id": "726d8056-a66a-4467-82e5-d91fddaac26e",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         200,
         260
@@ -365,7 +382,8 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: Invoice Processing workflow failed: {{$json.execution.error.message}}"
+        "text": "=:x: Invoice Processing workflow failed: {{$json.execution.error.message}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {

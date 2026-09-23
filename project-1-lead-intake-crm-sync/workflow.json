@@ -11,7 +11,7 @@
         -320
       ],
       "parameters": {
-        "content": "## Multi-Channel Lead Intake & CRM Sync\\nAccepts leads from any web form/ad landing page, validates + dedupes them against a lightweight Google-Sheets CRM, alerts sales in Slack, and auto-replies to the prospect \u2014 all in under a second.",
+        "content": "## Multi-Channel Lead Intake & CRM Sync\nAccepts leads from any web form/ad landing page, validates + dedupes them against a lightweight Google-Sheets CRM, alerts sales in Slack, and auto-replies to the prospect \u2014 all in a single execution.",
         "height": 220,
         "width": 420,
         "color": 4
@@ -21,7 +21,7 @@
       "id": "3290de59-998b-4c39-a166-bb8e6c4e57d2",
       "name": "Lead Form Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         -40,
         0
@@ -31,13 +31,14 @@
         "path": "lead-intake",
         "responseMode": "responseNode",
         "options": {}
-      }
+      },
+      "webhookId": "d47cd2fb-b303-5eb9-abf8-946b4893f094"
     },
     {
       "id": "aba4485c-19f9-487e-a1f8-14a114f150d5",
       "name": "Normalize & Validate",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         180,
         0
@@ -50,7 +51,7 @@
       "id": "79359694-5693-43ab-85b0-fcffcf0c2697",
       "name": "Valid Lead?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         400,
         0
@@ -65,11 +66,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.valid}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "90f06a37-1719-5eb2-bf6d-b1c4015f2879"
             }
           ],
           "combinator": "and"
@@ -80,16 +82,16 @@
       "id": "5266c5bb-a979-4961-8a15-1aab92222a08",
       "name": "Check For Duplicate",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         620,
         -90
       ],
       "parameters": {
-        "operation": "lookup",
+        "operation": "read",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CRM_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -104,20 +106,22 @@
               "lookupValue": "={{$json.email}}"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "gsheets_cred",
           "name": "Google Sheets - CRM (demo)"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "bc58ddd7-9431-4bba-a8d7-60a3b4bcae88",
       "name": "Already In CRM?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         840,
         -90
@@ -131,12 +135,13 @@
           },
           "conditions": [
             {
-              "leftValue": "={{$json.email}}",
-              "rightValue": "",
+              "leftValue": "={{ $json.email ?? '' }}",
               "operator": {
                 "type": "string",
-                "operation": "isNotEmpty"
-              }
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "id": "248ef2fc-57f5-52c4-b4a8-20d9fade5ef6"
             }
           ],
           "combinator": "and"
@@ -147,7 +152,7 @@
       "id": "10135588-f8ba-4e20-a1db-75fba254752e",
       "name": "Update Existing Row",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1060,
         -160
@@ -156,7 +161,7 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CRM_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -167,11 +172,16 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "email": "={{$json.email}}",
-            "lastTouchedAt": "={{$now.toISO()}}",
-            "touchCount": "={{$json.touchCount + 1}}"
-          }
-        }
+            "email": "={{ $('Normalize & Validate').item.json.email }}",
+            "lastTouchedAt": "={{ $now.toISO() }}",
+            "touchCount": "={{ Number($json.touchCount || 0) + 1 }}"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -184,7 +194,7 @@
       "id": "4b9fba5b-3f77-4a03-bfe4-f5d99d8919a0",
       "name": "Create New CRM Row",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1060,
         -20
@@ -193,7 +203,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CRM_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -204,16 +214,20 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "firstName": "={{$json.firstName}}",
-            "lastName": "={{$json.lastName}}",
-            "email": "={{$json.email}}",
-            "company": "={{$json.company}}",
-            "source": "={{$json.source}}",
-            "createdAt": "={{$json.submittedAt}}",
+            "firstName": "={{$('Normalize & Validate').item.json.firstName}}",
+            "lastName": "={{$('Normalize & Validate').item.json.lastName}}",
+            "email": "={{$('Normalize & Validate').item.json.email}}",
+            "company": "={{$('Normalize & Validate').item.json.company}}",
+            "source": "={{$('Normalize & Validate').item.json.source}}",
+            "createdAt": "={{$('Normalize & Validate').item.json.submittedAt}}",
             "status": "new",
-            "touchCount": 1
-          }
-        }
+            "touchCount": 1,
+            "lastTouchedAt": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -226,7 +240,7 @@
       "id": "fd35b330-9db4-4611-878c-6a9b2f526db4",
       "name": "Notify Sales (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1300,
         -60
@@ -240,7 +254,8 @@
           "value": "#sales-alerts",
           "mode": "name"
         },
-        "text": "=:rotating_light: New lead: *{{$json.firstName}} {{$json.lastName}}* ({{$json.company}}) via {{$json.source}}\\nEmail: {{$json.email}}"
+        "text": "=:rotating_light: {{ $('Check For Duplicate').item.json.email ? 'Returning lead (touch #' + (Number($('Check For Duplicate').item.json.touchCount || 0) + 1) + ')' : 'New lead' }}: *{{ [$('Normalize & Validate').item.json.firstName, $('Normalize & Validate').item.json.lastName].filter(Boolean).join(' ') || 'Unknown name' }}*{{ $('Normalize & Validate').item.json.company ? ' (' + $('Normalize & Validate').item.json.company + ')' : '' }} via {{ $('Normalize & Validate').item.json.source }}\nEmail: {{ $('Normalize & Validate').item.json.email }}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -253,16 +268,18 @@
       "id": "6ddfd347-9fec-4bff-bad3-5789b62870cd",
       "name": "Send Confirmation Email",
       "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "position": [
         1520,
         -60
       ],
       "parameters": {
         "fromEmail": "hello@yourcompany.com",
-        "toEmail": "={{$json.email}}",
-        "subject": "Thanks for reaching out, {{$json.firstName}}!",
-        "text": "Hi {{$json.firstName}},\\n\\nThanks for your interest \u2014 a member of our team will follow up within one business day.\\n\\nBest,\\nThe Team"
+        "toEmail": "={{$('Normalize & Validate').item.json.email}}",
+        "subject": "=Thanks for reaching out, {{$('Normalize & Validate').item.json.firstName}}!",
+        "text": "=Hi {{$('Normalize & Validate').item.json.firstName}},\n\nThanks for your interest \u2014 a member of our team will follow up within one business day.\n\nBest,\nThe Team",
+        "emailFormat": "text",
+        "options": {}
       },
       "credentials": {
         "smtp": {
@@ -275,21 +292,22 @@
       "id": "cfca7d5a-f235-4d02-bc89-d26ffd422c03",
       "name": "Respond 200 OK",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [
         1740,
         -60
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"status\": \"received\" } }}"
+        "responseBody": "={{ { \"status\": \"received\", \"email\": $('Normalize & Validate').item.json.email } }}",
+        "options": {}
       }
     },
     {
       "id": "34affc1c-9b2a-43e5-ba94-41f18de720db",
       "name": "Log Invalid Submission",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         620,
         120
@@ -298,7 +316,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.CRM_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -312,8 +330,11 @@
             "raw": "={{JSON.stringify($json)}}",
             "reason": "invalid_email",
             "receivedAt": "={{$now.toISO()}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -326,15 +347,17 @@
       "id": "98888970-e6ab-44cf-8ea3-60937e72593e",
       "name": "Respond 400 Bad Request",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [
         840,
         120
       ],
       "parameters": {
         "respondWith": "json",
-        "responseCode": 400,
-        "responseBody": "={{ { \"status\": \"rejected\", \"reason\": \"invalid_email\" } }}"
+        "responseBody": "={{ { \"status\": \"rejected\", \"reason\": \"invalid_email\" } }}",
+        "options": {
+          "responseCode": 400
+        }
       }
     },
     {
@@ -352,7 +375,7 @@
       "id": "b3aee0b3-19ed-4254-ac60-19858b48f6dd",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         640,
         260
@@ -366,7 +389,8 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: Lead Intake workflow failed: {{$json.execution.error.message}}"
+        "text": "=:x: Lead Intake workflow failed: {{$json.execution.error.message}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {

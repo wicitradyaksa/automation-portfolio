@@ -1,142 +1,155 @@
-# VPS Ops & Nightly Data Pipeline
+# ⚡ VPS Ops & Nightly Data Pipeline: Self-Healing Infrastructure and an ETL That Won't Commit a Bad Load
 
-**The unglamorous workflow that keeps a self-hosted stack alive: healthcheck, self-heal, verified backup, ETL into Postgres — and a data-quality gate that quarantines a bad load instead of letting it poison every dashboard.**
+[![n8n](https://img.shields.io/badge/n8n-v1.0%2B-FF6D5A?logo=n8n)](https://n8n.io)
+[![Nodes](https://img.shields.io/badge/Nodes-24-informational)](./workflow.json)
+[![Postgres](https://img.shields.io/badge/PostgreSQL-DQ%20gated-336791?logo=postgresql)](./scripts/etl_load.py)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
 
-## The problem
+> **Quick Summary:** A nightly n8n workflow that SSHes into an Ubuntu VPS and runs a Bash healthcheck that returns JSON. It self-heals disk pressure and verifies the fix, takes a checksum-verified backup of the Docker volumes, and only then runs an idempotent Python ETL into PostgreSQL. SQL data-quality assertions follow, and a bad load is **quarantined** instead of reaching the dashboards.
 
-Everything else in this portfolio runs on one Ubuntu VPS. That box has the failure modes every small self-hosted stack has, and all of them are quiet:
+---
 
-- **Disk fills up.** Docker never reclaims old image layers on its own, and journald will happily eat several gigabytes. The first symptom is usually Postgres refusing writes at 3am.
-- **The backup "succeeds" and is empty.** `tar` exits 0, cron is happy, and you find out the archive is 200 bytes on the day you need it.
-- **The ETL runs and loads nothing.** An upstream log path changed, the job exits 0 with zero rows, and every dashboard downstream shows a clean, confident, completely wrong flat line.
+## 📷 Workflow Preview
 
-The pattern: **exit code 0 is not evidence that a job did its work.** Each stage here verifies its own output rather than trusting its return code.
+<!-- Add docs/images/workflow-screenshot.png after the first run with live credentials -->
+*Download the ready-to-import n8n workflow file: [`workflow.json`](./workflow.json)*
 
-## The solution
+---
 
+## 🎯 Business Problem & Impact
+
+* **The Challenge:** Self-hosted stacks fail quietly. The disk fills up until Postgres refuses writes at 3am. A backup "succeeds" and turns out to be 200 bytes. An ETL exits 0 having loaded nothing, and every downstream dashboard shows a confident, wrong flat line.
+* **The Solution:** A pipeline built on one rule: **exit code 0 is not evidence that a job did its work.** Every stage verifies its own output before the next stage runs.
+* **Impact & ROI:**
+  * **Backups:** **0 unverified backups are counted as success**. Each archive must exceed 1 MiB and pass a checksum read-back *(enforced by `Verify Backup`)*.
+  * **Data integrity:** **0 failed-DQ loads committed to reporting tables**. They are quarantined with a reason attached *(enforced by `Data Quality Passed?`)*.
+  * **Unattended remediation:** Disk pressure is cleared automatically, and someone is paged **only if usage is still above 85% after cleanup** *(design target)*.
+  * **Safe re-runs:** Deterministic event IDs + `ON CONFLICT` upserts mean a failed night can be re-run **without double-counting**.
+
+---
+
+## 🏗️ Workflow Architecture
+
+```mermaid
+graph TD
+    A[Schedule: Nightly 02:00] --> B[SSH: Run VPS Healthcheck]
+    B --> C[Code: Parse Health JSON<br/>throws on non-JSON]
+    C --> D{Disk Under Pressure?}
+    D -- Yes --> E[SSH: Reclaim Disk Space<br/>docker prune · journald vacuum]
+    E --> F[SSH: Re-Check Disk]
+    F --> G{Still Full?}
+    G -- Yes --> H[Slack: Escalate Disk Alert]
+    G -- No --> I[NoOp: Disk Recovered]
+    D -- No --> I
+    C --> J[SSH: Backup Volumes<br/>tar + sha256]
+    J --> K[Code: Verify Backup<br/>> 1 MiB, checksum verified]
+    K --> L{Backup Good?}
+    L -- No --> M[Slack: Alert Backup Failure<br/>ETL skipped]
+    L -- Yes --> N[SSH: Run ETL Load<br/>etl_load.py]
+    N --> O[Code: Parse ETL Result]
+    O --> P[Postgres: Data Quality Checks]
+    P --> Q[Code: Assert Data Quality]
+    Q --> R{Data Quality Passed?}
+    R -- Yes --> S[Sheets: Log Nightly Run]
+    S --> T[Slack: Post Nightly Digest]
+    R -- No --> U[Postgres: Quarantine Bad Load]
+    U --> V[Slack: Alert Data Quality Failure]
+    X[Error Trigger] --> Y[Slack: Alert Engineering]
 ```
-02:00 nightly
-   │
-   ▼
-Run VPS Healthcheck  (SSH → bash script returning JSON)
-   ▼
-Parse Health JSON  ── throws loudly on non-JSON
-   │
-   ├──────────────────────────────┐
-   ▼                              ▼
-Disk Under Pressure?         Backup Volumes  (SSH → tar + sha256)
-   │ yes        │ no               ▼
-   ▼            │            Verify Backup   ── archive must exist,
-Reclaim Disk    │                  ▼             exceed 1 MiB, checksum-verify
-Space           │            Backup Good? ──no──► Alert Backup Failure
-   ▼            │                  │ yes            (ETL skipped)
-Re-Check Disk   │                  ▼
-   ▼            │            Run ETL Load  (SSH → Python → Postgres)
-Still Full? ────┤                  ▼
-   │ yes        │            Parse ETL Result
-   ▼            ▼                  ▼
-Escalate    Disk Recovered   Data Quality Checks  (SQL assertions)
-                                   ▼
-                             Assert Data Quality
-                                   ▼
-                        Data Quality Passed?
-                          │ yes         │ no
-                          ▼             ▼
-                   Log Nightly Run   Quarantine Bad Load
-                          ▼             ▼
-                   Post Digest      Alert Data Quality Failure
-```
 
-## Self-healing before escalating
+---
 
-Disk pressure is the one failure here that's usually fixable without a human, so the workflow tries first: `docker system prune -af --filter 'until=168h'` plus `journalctl --vacuum-time=7d`, then **re-checks**. Only if it's still above 85% does anyone get paged.
+## ⚙️ Key Technical Features
 
-That re-check is the part that matters. Plenty of "auto-remediation" fires a fix and reports success without ever confirming it worked, which is strictly worse than not trying — you've now got a silent failure *and* a green check mark.
+* **JSON-over-SSH script contract:** [`vps_healthcheck.sh`](./scripts/vps_healthcheck.sh) emits exactly one JSON object: disk %, available MB, memory % (from `MemAvailable`, not `free`), load, containers, unhealthy containers, failed systemd units, and TLS days-to-expiry. `Parse Health JSON` throws loudly if stdout isn't JSON.
+* **Self-heal, then verify:** `docker system prune -af --filter 'until=168h'` + `journalctl --vacuum-time=7d`, then a **re-check** before deciding whether to page anyone.
+* **Verified backups:** [`backup_volumes.sh`](./scripts/backup_volumes.sh) reads each named volume through a throwaway `alpine` container, tars it, checksums it, and reads the archive back (`tar -tzf`). It writes to `.partial` and then `mv`s, and retention runs **last, only after verification**.
+* **Gated ETL:** The ETL runs only if the backup passed. Loading data on a night with no backup is the wrong risk to take.
+* **Idempotent upserts:** [`etl_load.py`](./scripts/etl_load.py) builds `sha256(source|ip|timestamp|method|path)[:32]` keys, de-duplicates within the batch, and upserts via `ON CONFLICT (event_id) DO UPDATE` in a single transaction.
+* **SQL data-quality gate** via the Postgres node:
 
-## The healthcheck returns JSON, not prose
+  | Assertion | Catches |
+  |---|---|
+  | `rows_today = 0` | Source path changed, permissions broke, silent no-op |
+  | `null_keys > 0` | Parser regressed against a changed log format |
+  | `duplicate_keys > 0` | Idempotency key collision |
+  | `rows < 40% of trailing 7-day average` | A partial upstream break that looks like a quiet day |
 
-[`scripts/vps_healthcheck.sh`](./scripts/vps_healthcheck.sh) emits exactly one JSON object on stdout; warnings go to stderr. The workflow parses it directly instead of regex-scraping human-readable output that changes shape between Ubuntu releases.
+* **Quarantine, not delete:** Failing rows move to `events_quarantine` with the reason, and `#ops` is told the dashboards are showing yesterday's data. **Stale-but-correct beats fresh-but-wrong.**
+* **Credentials & security:** Postgres credentials come from `PGHOST`/`PGUSER`/`PGPASSWORD` on the VPS, never from the command line, because the full command of every SSH call is recorded in the n8n execution log.
 
-It reports disk %, available MB, memory %, 1-minute load, core count, uptime, running container count, unhealthy containers, failed systemd units, and TLS certificate days-to-expiry.
+---
 
-Two details worth the space:
+## 🧠 Why It's Built This Way
 
-**Memory uses `MemAvailable`, not `free`.** Linux deliberately spends idle RAM on page cache. Alerting on "free memory" means alerting constantly on a perfectly healthy box, and an alert everyone has learned to ignore is worse than no alert.
+* **SSH rather than an agent.** There's no extra daemon on the box that could itself fail silently.
+* **Scripts report, the workflow decides.** The node graph stays readable, and every script can be run by hand during a 2am incident.
+* **Healthcheck exit code 0 whenever it *ran*.** "The server is unhealthy" is data to act on, not a script error. Every `docker` pipeline ends in `|| true` under `pipefail`, so one probe failure can't blind the whole check.
 
-**Every `docker` pipeline ends in `|| true`.** Under `set -o pipefail`, a single unreachable-daemon hiccup would abort the entire healthcheck — and a healthcheck that dies because one probe failed tells the workflow nothing at all. The script reports `docker_reachable: false` and keeps going.
+---
 
-Its exit code is `0` whenever the check *ran*. "The server is unhealthy" is data for the workflow to act on, not a script error.
+## 🔐 Prerequisites & Environment Variables
 
-## Backups that are verified before they're trusted
+n8n v1.0+, an Ubuntu VPS reachable over SSH with the scripts in `/opt/ops`, and PostgreSQL.
 
-[`scripts/backup_volumes.sh`](./scripts/backup_volumes.sh) copies each Docker named volume out through a throwaway `alpine` container — the only portable way to read a named volume without knowing where the storage driver put it — then tars, checksums, and **reads the archive back** (`tar -tzf`) before accepting it.
+| Credential / Variable | Type | Used by |
+| :--- | :--- | :--- |
+| `Ubuntu VPS - ops user (demo)` | SSH (swap to key-based auth in production) | Healthcheck, Reclaim, Re-Check, Backup, ETL |
+| `Analytics Postgres (demo)` | Postgres | Data Quality Checks, Quarantine Bad Load |
+| `Google Sheets - Ops (demo)` | Google Sheets OAuth2 | Log Nightly Run |
+| `Slack - Ops (demo)` | Slack API (`chat:write`) | Digest, disk/backup/DQ alerts, engineering alert |
+| `PGHOST`, `PGUSER`, `PGPASSWORD` | Environment on the **VPS** | `etl_load.py` |
 
-Two orderings that are deliberate:
+Environment variables reach the workflow as `$env.NAME` through the repo-root [`docker-compose.yml`](../docker-compose.yml) (`env_file: .env`, see [`.env.example`](../.env.example)), which also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
 
-- **Write to `.partial`, then `mv`.** An interrupted run leaves nothing rather than a truncated archive that a future restore would unpack happily and uselessly.
-- **Retention runs last, and only after verification passes.** Pruning first means a failed backup leaves you with nothing at all — the exact moment you need the old one.
+> **Turn on the Error Trigger:** n8n only runs an Error Trigger for workflows that name it as their error workflow. After importing, open **Workflow Settings → Error Workflow** and select this workflow (or a shared error-handler workflow). Until you do, failures show in the execution list but don't alert Slack.
 
-The JSON it returns (`archive`, `bytes`, `checksum`, `checksum_verified`) is what `Verify Backup` checks. A 200-byte tarball fails the 1 MiB floor and the ETL never runs, because loading data on a night you have no backup is the wrong risk to take.
+---
 
-## The ETL is idempotent
+## 🚀 Quick Start / How to Import
 
-[`scripts/etl_load.py`](./scripts/etl_load.py) reads nginx access logs (including rotated `.gz` files) and n8n execution exports, normalises both into one flat `events` table, and upserts.
-
-Logs have no primary key, so the script builds a deterministic one — `sha256(source|ip|timestamp|method|path)[:32]` — and uses `ON CONFLICT (event_id) DO UPDATE`. **A failed nightly run can simply be re-run** without doubling yesterday's traffic numbers.
-
-It also de-duplicates *within* the batch before inserting, because overlapping rotated log files hand you the same line twice and `ON CONFLICT` cannot resolve a duplicate key that appears twice inside a single `INSERT`.
-
-Postgres credentials come from `PGHOST`/`PGUSER`/`PGPASSWORD` in the environment, never from the command line — the full command line of every SSH call is recorded in the n8n execution log.
-
-## The data-quality gate
-
-This is the part most pipelines skip. After loading, four SQL assertions run:
-
-| Assertion | Catches |
-|---|---|
-| `rows_today = 0` | Source path changed, permissions broke, job silently no-opped |
-| `null_keys > 0` | Parser regressed against a changed log format |
-| `duplicate_keys > 0` | Idempotency key collision or a broken dedupe |
-| `rows < 40% of trailing 7-day average` | Upstream source partially broke — the failure mode that looks *exactly* like a quiet day |
-
-If any fail, today's rows are moved into `events_quarantine` with the reason attached, and `#ops` is told that dashboards are still reading yesterday's data. **Stale-but-correct beats fresh-but-wrong**, every time. A dashboard showing yesterday's number gets a question; a dashboard showing a confident wrong number gets a decision made on it.
-
-## Tech stack
-
-- **n8n** — Schedule Trigger, SSH, Code, IF, Postgres, Google Sheets, Slack, Error Trigger
-- **Bash** — healthcheck and backup scripts, `set -Eeuo pipefail`, JSON output, explicit exit codes
-- **Python 3** — the ETL (stdlib + `psycopg2`), idempotent hashing, batched `execute_values`
-- **PostgreSQL** — target warehouse, DQ assertions, quarantine table
-- **Linux / Ubuntu VPS** — `df`, `/proc/meminfo`, `journalctl`, `systemctl`, `openssl s_client`, Docker CLI
-
-## Why it's built this way
-
-**SSH rather than an agent.** No extra daemon to keep alive on the box, no extra thing that can itself fail silently. The scripts live on the server and are version-controlled here.
-
-**Scripts return JSON; the workflow makes decisions.** Keeps the shell honest and the node graph readable — and every script can be run by hand from a terminal, which is how you debug a 2am failure without replaying a workflow.
-
-**One transaction for the whole ETL load.** A partial load is worse than no load, because it would pass the row-count check while being wrong.
-
-## What I'd improve with more time
-
-- Ship metrics to Prometheus + Grafana instead of Google Sheets, so trends are visible rather than reconstructable.
-- Restore-testing: monthly, restore the latest archive into a scratch container and assert the row counts match. An unverified restore path is not a backup, it's a hope.
-- `great_expectations` (or dbt tests) instead of hand-written SQL assertions once the check count grows past what's readable in one query.
-- Off-site backup replication — a verified archive sitting on the same disk that just filled up is not much of a disaster-recovery plan.
-
-## Running it
-
-Import [`workflow.json`](./workflow.json), add an SSH credential for your VPS, and place the scripts in `/opt/ops`:
+1. **Deploy the scripts:**
 
 ```bash
 scp scripts/*.sh scripts/*.py ops@your-vps:/opt/ops/
 ssh ops@your-vps 'chmod +x /opt/ops/*.sh'
 ```
 
-Try each one by hand first — they're all designed to be run standalone:
+2. **Run each one by hand first.** They're all designed to run standalone:
 
 ```bash
 bash /opt/ops/vps_healthcheck.sh --domain example.com | jq .
 bash /opt/ops/backup_volumes.sh --retain 7 | jq .
 python3 /opt/ops/etl_load.py --since-hours 24 --dry-run | jq .
 ```
+
+3. **Import** [`workflow.json`](./workflow.json), map the SSH, Postgres, Sheets and Slack credentials, and **Activate**.
+
+---
+
+## 🧪 Edge Cases & Testing Strategy
+
+| Scenario | Handled By | Outcome |
+| :--- | :--- | :--- |
+| Healthcheck prints a traceback instead of JSON | `Parse Health JSON` throws | **Error Trigger** → engineering alert |
+| Disk above threshold | Reclaim → Re-Check → `Still Full?` | Self-healed silently, or escalated if still full |
+| Backup "succeeds" but is tiny or corrupt | `Verify Backup` (> 1 MiB + checksum) | Backup alert. **ETL skipped** for the night |
+| Overlapping rotated logs produce duplicate lines | In-batch de-dup + `ON CONFLICT` | No double counting. Re-run is safe |
+| ETL loads 0 rows or a partial day | SQL DQ assertions | Load quarantined, `#ops` alerted |
+| Docker daemon unreachable during healthcheck | `|| true` + `docker_reachable: false` | Reported as data. The healthcheck still completes |
+
+---
+
+## 🛣️ Roadmap / v2 Hardening (not yet built)
+
+* **Monthly restore test:** Restore the latest archive into a scratch container and assert row counts. An untested restore path is a hope, not a backup.
+* **Dead-letter replay:** A sub-workflow that re-processes `events_quarantine` rows once the upstream is fixed.
+* **Metrics:** Emit to the [Project 9](../project-9-observability-layer) Prometheus exporter instead of Sheets.
+* **Off-site replication** of verified archives, plus dbt / great_expectations tests once the assertion count grows.
+
+---
+
+## 📄 License
+Distributed under the [MIT License](../LICENSE).
+
+[← Back to portfolio](../README.md)

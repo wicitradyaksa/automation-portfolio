@@ -3,729 +3,369 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ida Bagus Wicitra Dyaksa — Automation Engineer</title>
-<meta name="description" content="Automation engineering portfolio of Ida Bagus Wicitra Dyaksa — seven end-to-end n8n workflows across operations, FFmpeg media rendering, ComfyUI generative creative, DCO performance optimisation, and Linux VPS data pipelines.">
+<title>Dyaksa — Workflow Automation for Growing Teams</title>
+<meta name="description" content="Ida Bagus Wicitra Dyaksa, n8n &amp; AI workflow automation engineer. I replace copy-paste, chasing and checking with automations that save staff hours, cut errors and keep your data on your own infrastructure.">
 <meta name="author" content="Ida Bagus Wicitra Dyaksa">
-<meta property="og:title" content="Ida Bagus Wicitra Dyaksa — Automation Engineer">
-<meta property="og:description" content="Automation engineering portfolio of Ida Bagus Wicitra Dyaksa — seven end-to-end n8n workflows across operations, FFmpeg media rendering, ComfyUI generative creative, DCO performance optimisation, and Linux VPS data pipelines.">
+<meta property="og:title" content="Dyaksa — Workflow Automation for Growing Teams">
+<meta property="og:description" content="Automations that save staff hours, cut errors and keep your data on your own infrastructure. About 1,000 hours a year modelled across five workflows.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0c8f68">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%230c8f68'/></svg>">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
   :root {
-    --bg: #f5f6f8;
-    --bg-raised: #ffffff;
-    --ink: #12161d;
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --ink: #111827;
     --ink-soft: #4b5563;
-    --ink-faint: #8891a0;
-    --line: #dfe2e8;
-    --line-soft: #eceef2;
+    --ink-faint: #8a93a3;
+    --line: #e3e6eb;
     --accent: #0c8f68;
     --accent-ink: #ffffff;
-    --accent-soft: #e2f4ec;
-    --warn: #b3781c;
-    --warn-soft: #f8ecd8;
-    --danger: #b3392c;
-    --danger-soft: #f9e6e3;
-    --mono-chip-bg: #eef0f4;
-    --shadow: 0 1px 2px rgba(18,22,29,0.04), 0 8px 24px -12px rgba(18,22,29,0.14);
+    --accent-soft: #e3f4ed;
+    --before: #b3392c;
+    --before-soft: #fbeceb;
+    --after: #0c8f68;
+    --after-soft: #e6f5ef;
+    --shadow: 0 1px 2px rgba(17,24,39,.05), 0 10px 30px -14px rgba(17,24,39,.18);
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #10131a;
-      --bg-raised: #171b24;
-      --ink: #edeff3;
-      --ink-soft: #aab0bd;
-      --ink-faint: #6b7280;
-      --line: #2a2f3a;
-      --line-soft: #1e2229;
-      --accent: #2fd39a;
-      --accent-ink: #08130f;
-      --accent-soft: #14261f;
-      --warn: #e8b355;
-      --warn-soft: #2b2416;
-      --danger: #e2685a;
-      --danger-soft: #2b1a17;
-      --mono-chip-bg: #1c2028;
-      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -14px rgba(0,0,0,0.6);
+      --bg: #0f1218; --surface: #171b23; --ink: #eef0f4; --ink-soft: #b0b6c2; --ink-faint: #6f7786;
+      --line: #282d38; --accent: #34d399; --accent-ink: #06140e; --accent-soft: #11261d;
+      --before: #f08a7e; --before-soft: #2a1715; --after: #34d399; --after-soft: #102219;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 34px -16px rgba(0,0,0,.7);
+      color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #10131a;
-    --bg-raised: #171b24;
-    --ink: #edeff3;
-    --ink-soft: #aab0bd;
-    --ink-faint: #6b7280;
-    --line: #2a2f3a;
-    --line-soft: #1e2229;
-    --accent: #2fd39a;
-    --accent-ink: #08130f;
-    --accent-soft: #14261f;
-    --warn: #e8b355;
-    --warn-soft: #2b2416;
-    --danger: #e2685a;
-    --danger-soft: #2b1a17;
-    --mono-chip-bg: #1c2028;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -14px rgba(0,0,0,0.6);
+    --bg: #0f1218; --surface: #171b23; --ink: #eef0f4; --ink-soft: #b0b6c2; --ink-faint: #6f7786;
+    --line: #282d38; --accent: #34d399; --accent-ink: #06140e; --accent-soft: #11261d;
+    --before: #f08a7e; --before-soft: #2a1715; --after: #34d399; --after-soft: #102219;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 14px 34px -16px rgba(0,0,0,.7);
+    color-scheme: dark;
   }
 
-  * { box-sizing: border-box; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
+    margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
-    margin: 0;
-    padding-inline: 20px;
-    line-height: 1.55;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  .mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
-
   a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 
-  .wrap {
-    max-width: 920px;
-    margin: 0 auto;
+  /* nav */
+  .nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
   }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; flex-wrap: wrap; padding-block: 8px; }
+  .brand { font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .links { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--ink-soft); }
+  .links a { text-decoration: none; }
+  .links a:hover { color: var(--accent); }
 
-  /* ---------- nav ---------- */
-  nav {
-    position: sticky;
-    top: env(safe-area-inset-top, 0px);
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-block: 16px;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--line-soft);
-    flex-wrap: wrap;
-  }
-  .brand {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .brand .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-    flex: none;
-  }
-  .navlinks {
-    display: flex;
-    gap: 20px;
-    font-size: 13px;
-    font-family: 'IBM Plex Mono', monospace;
-    color: var(--ink-soft);
-  }
-  .navlinks a { text-decoration: none; }
-  .navlinks a:hover { color: var(--accent); }
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn:hover { filter: brightness(1.05); }
 
-  /* ---------- hero ---------- */
-  .hero {
-    padding-block: 56px 40px;
-    display: grid;
-    gap: 28px;
-  }
-  .eyebrow {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .eyebrow::before {
-    content: "";
-    width: 18px; height: 1px;
-    background: var(--accent);
-  }
-  h1 {
-    font-size: clamp(30px, 5vw, 44px);
-    line-height: 1.12;
-    margin: 0;
-    text-wrap: balance;
-    letter-spacing: -0.01em;
-  }
-  h1 .who { color: var(--ink); }
-  h1 .role { color: var(--ink-faint); font-weight: 500; }
-  .pitch {
-    font-size: 17px;
-    color: var(--ink-soft);
-    max-width: 62ch;
-    margin: 0;
-  }
-  .cta-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .btn {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    text-decoration: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn.primary {
-    background: var(--accent);
-    color: var(--accent-ink);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .btn.ghost {
-    color: var(--ink-soft);
-    background: var(--bg-raised);
-  }
-  .btn.ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
+  /* hero */
+  .hero { padding: 64px 0 40px; display: grid; gap: 26px; }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.07; letter-spacing: -.025em; margin: 0; max-width: 17ch; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 18.5px; color: var(--ink-soft); max-width: 60ch; margin: 0; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
 
-  .placeholder-tag {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    color: var(--warn);
-    background: var(--warn-soft);
-    border: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent);
-    padding: 3px 8px;
-    border-radius: 6px;
-    display: inline-block;
-    width: fit-content;
-  }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+  .stat .n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .stat .l { font-size: 14px; color: var(--ink-soft); line-height: 1.4; }
+  .label { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin-top: 8px; }
+  .label.real { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
-  /* hero diagram */
-  .hero-diagram {
-    width: 100%;
-    max-width: 640px;
-    height: auto;
-    display: block;
-  }
-  .hd-node rect { fill: var(--bg-raised); stroke: var(--line); }
-  .hd-node.active rect { stroke: var(--accent); }
-  .hd-node text { fill: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
-  .hd-node .sub { fill: var(--ink-faint); font-size: 9px; }
-  .hd-edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
-  .hd-edge.on { stroke: var(--accent); }
-  .hd-pulse { fill: var(--accent); }
+  /* sections */
+  section { padding: 56px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -.02em; line-height: 1.15; margin: 0 0 10px; }
+  .sub { color: var(--ink-soft); font-size: 17px; max-width: 62ch; margin: 0 0 30px; }
 
-  /* ---------- sections ---------- */
-  section { padding-block: 44px; border-top: 1px solid var(--line-soft); }
-  .section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
-  .section-num { font-family: 'IBM Plex Mono', monospace; color: var(--accent); font-size: 13px; }
-  h2 { font-size: 22px; margin: 0; letter-spacing: -0.005em; }
-  .section-desc { color: var(--ink-soft); font-size: 14.5px; max-width: 60ch; margin: -14px 0 28px; }
+  .pillars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .pillar { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .pillar .ico { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 12px; }
+  .pillar h3 { margin: 0 0 6px; font-size: 17px; }
+  .pillar p { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
 
-  /* approach */
-  .principles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-  }
-  .principle {
-    background: var(--bg-raised);
-    border: 1px solid var(--line-soft);
-    border-radius: 12px;
-    padding: 20px;
-    display: grid;
-    gap: 10px;
-  }
-  .principle .idx {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--ink-faint);
-  }
-  .principle h3 { margin: 0; font-size: 15.5px; }
-  .principle p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  /* project cards */
+  .project { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 28px; margin-bottom: 22px; box-shadow: var(--shadow); }
+  .p-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .p-head h3 { margin: 0; font-size: 21px; letter-spacing: -.01em; }
+  .p-kicker { font-size: 13px; font-weight: 600; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; }
+  .p-result { font-size: 18px; font-weight: 600; color: var(--accent); margin: 6px 0 20px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .side { border-radius: 12px; padding: 16px 18px; }
+  .side.before { background: var(--before-soft); }
+  .side.after { background: var(--after-soft); }
+  .side b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+  .side.before b { color: var(--before); }
+  .side.after b { color: var(--after); }
+  .side p { margin: 0; font-size: 15px; }
+  .impacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .impact { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .impact .k { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .impact .v { font-size: 16px; font-weight: 700; line-height: 1.35; margin-top: 2px; }
+  .control { font-size: 14.5px; color: var(--ink-soft); display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; }
+  .control svg { flex: none; color: var(--accent); margin-top: 3px; }
+  .p-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; color: var(--ink-faint); }
+  .p-foot a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .p-foot a:hover { text-decoration: underline; }
 
-  /* skills */
-  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    background: var(--mono-chip-bg);
-    color: var(--ink-soft);
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--line-soft);
+  /* process */
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; counter-reset: step; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+  .step h3 { margin: 0 0 6px; font-size: 16.5px; }
+  .step p { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+
+  .trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .trust div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .trust h3 { margin: 0 0 6px; font-size: 16px; }
+  .trust p { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+  .trust a { color: var(--accent); }
+
+  .about { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: start; }
+  .about p { color: var(--ink-soft); font-size: 16px; margin: 0 0 14px; }
+  .jobs { display: grid; gap: 12px; }
+  .job { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .job b { font-size: 15px; }
+  .job span { display: block; font-size: 13px; color: var(--ink-faint); }
+  .job p { margin: 4px 0 0; font-size: 14px; color: var(--ink-soft); }
+
+  .more { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .more a { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-decoration: none; display: block; }
+  .more a:hover { border-color: var(--accent); }
+  .more b { display: block; font-size: 15px; }
+  .more span { font-size: 14px; color: var(--ink-soft); }
+
+  .contact { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 40px; box-shadow: var(--shadow); text-align: center; display: grid; gap: 14px; justify-items: center; }
+  .contact h2 { margin: 0; }
+  .contact p { margin: 0; color: var(--ink-soft); max-width: 56ch; font-size: 17px; }
+  footer { padding: 30px 0 50px; font-size: 13px; color: var(--ink-faint); text-align: center; }
+  footer a { color: var(--ink-soft); }
+
+  @media (max-width: 900px) {
+    .stats, .pillars, .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .impacts, .trust, .more { grid-template-columns: 1fr; }
+    .about { grid-template-columns: 1fr; }
   }
-
-  /* projects */
-  .project {
-    background: var(--bg-raised);
-    border: 1px solid var(--line-soft);
-    border-radius: 14px;
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow);
-  }
-  .project-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
-  .project h3 { margin: 0; font-size: 18px; }
-  .project .pnum { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent); }
-  .project .one-line { color: var(--ink-soft); font-size: 14.5px; margin: 6px 0 16px; max-width: 68ch; }
-
-  .flow {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11.5px;
-    margin-bottom: 16px;
-  }
-  .flow .step {
-    padding: 5px 9px;
-    border-radius: 999px;
-    background: var(--mono-chip-bg);
-    color: var(--ink-soft);
-    border: 1px solid var(--line-soft);
-    white-space: nowrap;
-  }
-  .flow .step.trigger { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-  .flow .step.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
-  .flow .arrow { color: var(--ink-faint); }
-
-  .project-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-  .project-tags .chip { font-size: 11px; padding: 4px 8px; }
-
-  .project-links { display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
-  .project-links a { text-decoration: none; color: var(--accent); }
-  .project-links a:hover { text-decoration: underline; }
-
-  /* footer */
-  footer {
-    padding-block: 40px 60px;
-    border-top: 1px solid var(--line-soft);
-    display: grid;
-    gap: 14px;
-  }
-  footer .contact-row { display: flex; gap: 18px; flex-wrap: wrap; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-soft); }
-  footer .contact-row a { text-decoration: none; }
-  footer .contact-row a:hover { color: var(--accent); }
-  footer .fine { font-size: 12px; color: var(--ink-faint); }
-
-  /* track grouping */
-  .track-head {
-    display: flex; align-items: baseline; gap: 10px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--ink-faint);
-    margin: 30px 0 14px;
-  }
-  .track-head::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
-  .track-head:first-of-type { margin-top: 0; }
-
-  /* the loop */
-  .loop-diagram { width: 100%; max-width: 660px; height: auto; display: block; margin: 0 auto 8px; }
-  .ld-node rect { fill: var(--bg-raised); stroke: var(--line); }
-  .ld-node.gen rect { stroke: var(--accent); }
-  .ld-node text { fill: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
-  .ld-node .sub { fill: var(--ink-faint); font-size: 9px; }
-  .ld-edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
-  .ld-edge.on { stroke: var(--accent); }
-  .ld-edge.feedback { stroke: var(--accent); stroke-dasharray: 4 3; }
-  .ld-label { fill: var(--ink-faint); font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; }
-  .ld-arrow { fill: var(--accent); }
-
-  /* grouped skills */
-  .skill-groups { display: grid; gap: 22px; }
-  .skill-group { display: grid; gap: 10px; }
-  .skill-group h3 {
-    margin: 0; font-size: 12px; font-family: 'IBM Plex Mono', monospace;
-    letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
-    font-weight: 600;
-  }
-  .chip.strong {
-    background: var(--accent-soft);
-    color: var(--accent);
-    border-color: transparent;
-    font-weight: 600;
-  }
-
-  /* evidence line under each project */
-  .evidence {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11.5px;
-    color: var(--ink-faint);
-    margin: 0 0 14px;
-    padding-left: 10px;
-    border-left: 2px solid var(--line);
-  }
-  .evidence code { color: var(--ink-soft); }
-
-  @media (max-width: 640px) {
-    .hero { padding-top: 36px; }
-    section { padding-block: 34px; }
+  @media (max-width: 560px) {
+    .stats, .pillars, .steps, .compare { grid-template-columns: 1fr; }
+    .hero { padding-top: 40px; }
+    .project, .contact { padding: 22px; }
+    .links { gap: 12px; font-size: 13px; }
   }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-
-  <nav>
-    <div class="brand"><span class="dot"></span>Dyaksa — Automation Engineer</div>
-    <div class="navlinks">
-      <a href="#approach">Approach</a>
-      <a href="#projects">Projects</a>
-      <a href="#loop">The loop</a>
-      <a href="#skills">Skills</a>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="dot"></span>Dyaksa · Workflow Automation</a>
+    <nav class="links" aria-label="Sections">
+      <a href="#results">Results</a>
+      <a href="#how">How I work</a>
+      <a href="#about">About</a>
       <a href="#contact">Contact</a>
-    </div>
-  </nav>
-
-  <div class="hero">
-    <div class="eyebrow">Portfolio · Automation &amp; Workflow Engineering</div>
-    <h1><span class="who">Ida Bagus Wicitra Dyaksa.</span><br><span class="role">I build systems that don't need a human watching them.</span></h1>
-    <p class="pitch">I design workflow automations that handle the messy parts on purpose &mdash; bad input, flaky APIs, wedged GPU queues, renders that finish and produce nothing &mdash; instead of only wiring the happy path. Seven end-to-end n8n builds below, spanning business operations, media production, generative AI, paid-media optimisation, and server infrastructure &mdash; with the Bash and Python that does the real work behind them.</p>
-    <p class="pitch" style="font-size:14.5px;">Before automation, I spent two years in operations at BAIADA (Tamworth, Australia) and six months in production at Primo Foods (Sydney) &mdash; both built on repeatable processes and zero tolerance for a step that only works if someone remembers to do it. I hold a degree in Maritime Transportation Engineering from ITS Surabaya, with a background in process simulation and system dynamics modelling. Automation engineering is me doing full-time what I kept doing informally on the floor.</p>
-    <div class="cta-row">
-      <a class="btn primary" href="#projects">View the 7 builds ↓</a>
-      <a class="btn ghost" href="https://github.com/wicitradyaksa/automation-portfolio" target="_blank" rel="noopener">↗ GitHub repo</a>
-      <a class="btn ghost" href="mailto:wicitradyaksa@gmail.com">✉ Email me</a>
-    </div>
-
-    <svg class="hero-diagram" viewBox="0 0 640 150" role="img" aria-label="Diagram: trigger flows to process, then a decision branches to auto-approve or escalate">
-      <defs>
-        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" class="hd-pulse"></path>
-        </marker>
-      </defs>
-      <path class="hd-edge on" d="M110,40 H190" marker-end="url(#arrow)"></path>
-      <path class="hd-edge on" d="M290,40 H370" marker-end="url(#arrow)"></path>
-      <path class="hd-edge on" d="M470,40 C500,40 500,25 520,25" marker-end="url(#arrow)"></path>
-      <path class="hd-edge" d="M470,40 C500,40 500,110 520,110" marker-end="url(#arrow)"></path>
-
-      <g class="hd-node active">
-        <rect x="10" y="18" width="100" height="44" rx="10"></rect>
-        <text x="60" y="36" text-anchor="middle">Webhook</text>
-        <text x="60" y="50" text-anchor="middle" class="sub">trigger</text>
-      </g>
-      <g class="hd-node">
-        <rect x="190" y="18" width="100" height="44" rx="10"></rect>
-        <text x="240" y="36" text-anchor="middle">Validate</text>
-        <text x="240" y="50" text-anchor="middle" class="sub">+ dedupe</text>
-      </g>
-      <g class="hd-node">
-        <rect x="370" y="18" width="100" height="44" rx="10"></rect>
-        <text x="420" y="36" text-anchor="middle">Decision</text>
-        <text x="420" y="50" text-anchor="middle" class="sub">if / branch</text>
-      </g>
-      <g class="hd-node">
-        <rect x="520" y="3" width="110" height="44" rx="10"></rect>
-        <text x="575" y="21" text-anchor="middle">Auto-resolve</text>
-        <text x="575" y="35" text-anchor="middle" class="sub">log + notify</text>
-      </g>
-      <g class="hd-node">
-        <rect x="520" y="88" width="110" height="44" rx="10"></rect>
-        <text x="575" y="106" text-anchor="middle">Escalate</text>
-        <text x="575" y="120" text-anchor="middle" class="sub">human in loop</text>
-      </g>
-    </svg>
+    </nav>
   </div>
+</header>
 
-  <section id="approach">
-    <div class="section-head"><span class="section-num">01</span><h2>How I approach a build</h2></div>
-    <p class="section-desc">Connecting app A to app B is the easy part, and it isn't what breaks at 3am. All seven builds follow the same three rules &mdash; the part that's hard to see in a demo video and is what actually makes an automation trustworthy.</p>
-    <div class="principles">
-      <div class="principle">
-        <div class="idx">rule / 01</div>
-        <h3>Exit code 0 proves nothing</h3>
-        <p>Every stage verifies its own output. <code class="mono">ffprobe</code> the render against the spec, checksum-read the archive, assert row counts after the load. A job that "succeeded" and produced a 0-byte file is a failure.</p>
+<main class="wrap" id="top">
+
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow">n8n &amp; AI workflow automation</div>
+    <h1>Give your team back <em>~20 hours a week</em>.</h1>
+    <p class="lede">I'm Dyaksa. I find the copy-paste, chasing and checking that eats your team's week, and replace it with automations that run on your own server, never guess when they're unsure, and cost nothing extra as your volume grows.</p>
+    <div class="cta">
+      <a class="btn primary" href="mailto:wicitradyaksa@gmail.com?subject=Free%20process%20review">Book a free process review</a>
+      <a class="btn" href="#results">See the results ↓</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">~1,000 h</div><div class="l">staff hours a year handed back, across five workflows</div><span class="label">estimate</span></div>
+      <div class="stat"><div class="n">≈ A$43k</div><div class="l">in staff time a year, at A$42/hour</div><span class="label">estimate</span></div>
+      <div class="stat"><div class="n">60%</div><div class="l">less wasted ad spend with rule-based automation</div><span class="label real">real result</span></div>
+      <div class="stat"><div class="n">&lt; 5 weeks</div><div class="l">for an invoice workflow to pay for itself</div><span class="label">benchmark</span></div>
+    </div>
+  </section>
+
+  <section id="value">
+    <h2>What changes for your business</h2>
+    <p class="sub">Every workflow I build is judged on four things a business owner actually cares about.</p>
+    <div class="pillars">
+      <div class="pillar"><div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Time back</h3><p>Hours of copying, checking and chasing handed to software, so your people spend their day on work that needs a person.</p></div>
+      <div class="pillar"><div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3"/></svg></div><h3>Lower cost</h3><p>Each workflow pays for itself in weeks. It's self-hosted, so there are no per-task fees that grow with your volume.</p></div>
+      <div class="pillar"><div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div><h3>Fewer errors</h3><p>Inputs are validated, duplicates blocked and every result checked. Anything uncertain goes to a person instead of being guessed.</p></div>
+      <div class="pillar"><div class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div><h3>Your data, your control</h3><p>Customer, financial and ad data stays on your own infrastructure, with a log of every decision the automation makes.</p></div>
+    </div>
+  </section>
+
+  <section id="results">
+    <h2>Results, before and after</h2>
+    <p class="sub">Five workflows from my portfolio, each compared with the manual process it replaces. Every figure is labelled as an estimate, a benchmark or a real result.</p>
+
+    <article class="project">
+      <div class="p-head"><h3>Lead Capture &amp; CRM Sync</h3><span class="p-kicker">Sales</span></div>
+      <p class="p-result">Every lead answered in under a minute, not hours later.</p>
+      <div class="compare">
+        <div class="side before"><b>Before</b><p>Leads from several forms copied into the CRM by hand. Replies go out hours later, and the same person gets entered twice.</p></div>
+        <div class="side after"><b>After</b><p>Every lead is captured, de-duplicated and answered automatically, and sales are pinged the moment it arrives.</p></div>
       </div>
-      <div class="principle">
-        <div class="idx">rule / 02</div>
-        <h3>Always have a failure path</h3>
-        <p>Uncertain cases route to a human instead of guessing, loops give up loudly instead of hanging forever, and an <code class="mono">errorTrigger</code> on every workflow means a break gets paged &mdash; not discovered a week later.</p>
+      <div class="impacts">
+        <div class="impact"><div class="k">Time saved</div><div class="v">~225 hours a year</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Money saved</div><div class="v">≈ A$9,500 a year</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Errors</div><div class="v">No duplicate contacts; bad emails stopped at the door</div></div>
       </div>
-      <div class="principle">
-        <div class="idx">rule / 03</div>
-        <h3>Refusing to act is a feature</h3>
-        <p>Two of these deliberately do nothing when the evidence is thin. Automation that acts on noise &mdash; scaling budget into a "winner" with 400 impressions &mdash; destroys things faster than a human can.</p>
+      <p class="control"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Lead data goes straight from your form to your CRM, never through a third-party automation service.</p>
+      <div class="p-foot"><span>Tested: new, returning, invalid and outage scenarios</span><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-1-lead-intake-crm-sync" target="_blank" rel="noopener">How it works →</a></div>
+    </article>
+
+    <article class="project">
+      <div class="p-head"><h3>Invoice Processing &amp; Approval</h3><span class="p-kicker">Finance</span></div>
+      <p class="p-result">5.2× faster per invoice, and it pays for itself in under five weeks.</p>
+      <div class="compare">
+        <div class="side before"><b>Before</b><p>About 90 minutes a day opening PDFs, typing six fields, checking totals and routing approvals from memory.</p></div>
+        <div class="side after"><b>After</b><p>Invoices are read, checked and routed automatically. Your team sees only the ~5% that genuinely need judgement.</p></div>
+      </div>
+      <div class="impacts">
+        <div class="impact"><div class="k">Time saved</div><div class="v">7.4 hours a week</div><span class="label">benchmark</span></div>
+        <div class="impact"><div class="k">Money saved</div><div class="v">≈ A$14,300 a year</div><span class="label">benchmark</span></div>
+        <div class="impact"><div class="k">Errors</div><div class="v">Error rate 1.56% → 0.63%</div><span class="label">benchmark</span></div>
+      </div>
+      <p class="control"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Invoices are processed on your own server, with no upload to an outside OCR service. Large amounts always go to a manager, and every decision is logged.</p>
+      <div class="p-foot"><span>Tested with real PDFs: over limit, under limit, unreadable</span><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-2-invoice-processing-pipeline" target="_blank" rel="noopener">How it works →</a></div>
+    </article>
+
+    <article class="project">
+      <div class="p-head"><h3>Ad Spend Optimisation</h3><span class="p-kicker">Marketing</span></div>
+      <p class="p-result">Budget moves only when a result is real, not noise.</p>
+      <div class="compare">
+        <div class="side before"><b>Before</b><p>Daily dashboard checks and gut-feel calls that pour budget into ads that only look like winners.</p></div>
+        <div class="side after"><b>After</b><p>Spend and revenue are checked every 6 hours. Proven winners are scaled in safe steps, losers paused, and replacements queued.</p></div>
+      </div>
+      <div class="impacts">
+        <div class="impact"><div class="k">Money saved</div><div class="v">60% less wasted ad spend</div><span class="label real">real result</span></div>
+        <div class="impact"><div class="k">Time saved</div><div class="v">~160 hours a year of manual review</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Errors</div><div class="v">No budget changes on lucky streaks</div></div>
+      </div>
+      <p class="control"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Revenue and spend data stay in your systems. Budget increases are capped, and every change is logged with its reason.</p>
+      <div class="p-foot"><span>The 60% is from my own paid-media work at Ecomobi</span><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-6-dco-engine" target="_blank" rel="noopener">How it works →</a></div>
+    </article>
+
+    <article class="project">
+      <div class="p-head"><h3>Ad Creative Production (AI + video)</h3><span class="p-kicker">Content</span></div>
+      <p class="p-result">A creative concept goes from brief to every ad size overnight.</p>
+      <div class="compare">
+        <div class="side before"><b>Before</b><p>An afternoon per concept exporting image and video variants one by one, and broken files that sometimes go live and waste spend.</p></div>
+        <div class="side after"><b>After</b><p>One spreadsheet row produces every image and video variant, and each file is checked before it can reach your ad account.</p></div>
+      </div>
+      <div class="impacts">
+        <div class="impact"><div class="k">Time saved</div><div class="v">~200 hours a year</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Money saved</div><div class="v">≈ A$8,700 a year</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Errors</div><div class="v">0 broken files reach live ads</div></div>
+      </div>
+      <p class="control"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Your prompts and creative strategy stay on your own machines, and hidden prompt data is stripped from every image.</p>
+      <div class="p-foot"><span>Tested: generation, video renders, stuck-queue alert</span><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-5-generative-creative-factory" target="_blank" rel="noopener">How it works →</a></div>
+    </article>
+
+    <article class="project">
+      <div class="p-head"><h3>Server Monitoring &amp; Nightly Reporting Data</h3><span class="p-kicker">Operations</span></div>
+      <p class="p-result">Problems fixed before customers notice, and backups you can trust.</p>
+      <div class="compare">
+        <div class="side before"><b>Before</b><p>Servers and backups checked by hand, outages reported by customers, and a backup discovered empty on the day you need it.</p></div>
+        <div class="side after"><b>After</b><p>Nightly checks, verified backups and automatic restarts. A person is paged only when an automatic fix doesn't work.</p></div>
+      </div>
+      <div class="impacts">
+        <div class="impact"><div class="k">Downtime</div><div class="v">~45 min → ~6 min per incident</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Time saved</div><div class="v">~100 hours a year of checking</div><span class="label">estimate</span></div>
+        <div class="impact"><div class="k">Errors</div><div class="v">Bad data stopped before it reaches your reports</div></div>
+      </div>
+      <p class="control"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Runs entirely on your own infrastructure, and database passwords never appear in logs.</p>
+      <div class="p-foot"><span>Tested: disk full, empty backup, bad data load</span><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline" target="_blank" rel="noopener">How it works →</a></div>
+    </article>
+
+    <div class="more">
+      <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-8-integration-kit" target="_blank" rel="noopener"><b>Secure app connections →</b><span>Logins and data sync between your tools that don't break, double-charge or leak.</span></a>
+      <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-9-observability-layer" target="_blank" rel="noopener"><b>Automation health dashboard →</b><span>Know the moment any workflow stops doing its job, even if it never errors.</span></a>
+      <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-10-migration-case-study" target="_blank" rel="noopener"><b>How I measure ROI →</b><span>The before/after method behind the invoice numbers, with every figure reproducible.</span></a>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How I work with you</h2>
+    <p class="sub">No big-bang rollout. We start with the process that costs you the most and prove the saving before moving on.</p>
+    <div class="steps">
+      <div class="step"><h3>Time the process</h3><p>We map how the work is done today and time each step, so we automate the step that actually costs you, not the one that's merely annoying.</p></div>
+      <div class="step"><h3>Build with a safety net</h3><p>Every automation checks its own work and hands anything uncertain to a person. Nothing fails silently.</p></div>
+      <div class="step"><h3>Test before it touches real data</h3><p>Each workflow runs through its real-world scenarios first. My portfolio's seven workflows pass 52 automated checks.</p></div>
+      <div class="step"><h3>Hand over and measure</h3><p>You get alerts, a plain-English runbook, and the before/after numbers, measured on your process.</p></div>
+    </div>
+  </section>
+
+  <section id="trust">
+    <h2>Why you can trust the numbers</h2>
+    <p class="sub">Automation claims are easy to inflate, so every figure on this page says where it comes from.</p>
+    <div class="trust">
+      <div><h3><span class="label real" style="margin:0 6px 0 0">real result</span>Observed</h3><p>From my own work: the 60% cut in wasted ad spend at Ecomobi.</p></div>
+      <div><h3><span class="label" style="margin:0 6px 0 0">benchmark</span>Modelled with a published method</h3><p>The invoice figures come from a before/after model you can rerun. Its dataset is labelled as sample data.</p></div>
+      <div><h3><span class="label" style="margin:0 6px 0 0">estimate</span>Stated assumptions</h3><p>Volumes and minutes for a typical small team at A$42/hour. <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/docs/impact-estimates.md" target="_blank" rel="noopener">See every assumption</a>. In a real project, week one replaces them with your numbers.</p></div>
+    </div>
+  </section>
+
+  <section id="about">
+    <h2>About me</h2>
+    <div class="about">
+      <div>
+        <p>I'm Ida Bagus Wicitra Dyaksa (Dyaksa), based in Bali and working remotely. I came to automation from operations, where the job was keeping a high-volume production line on schedule, and from paid media, where I first used rule-based automation to stop wasting ad spend.</p>
+        <p>The method is the same everywhere: find the step that's the real bottleneck, remove it, and make sure you'll know if it ever comes back. I build with n8n on infrastructure you own, so you keep control of your data and your costs.</p>
+        <p><b>Tools:</b> n8n (self-hosted), Google Workspace, Slack, CRMs and business APIs, PostgreSQL, generative AI (ComfyUI / Stable Diffusion), JavaScript and Python.</p>
+      </div>
+      <div class="jobs">
+        <div class="job"><b>Operations Staff · BAIADA</b><span>Tamworth, Australia · 2023 – 2025</span><p>Kept a 24.5+ tons/day operation on schedule, and found and fixed recurring bottlenecks.</p></div>
+        <div class="job"><b>Digital Marketing Contractor · Ecomobi</b><span>Denpasar · 2018 – 2020</span><p>$4K/month ad spend at 180% average ROI, and 60% less wasted spend through automation.</p></div>
+        <div class="job"><b>Manufacturing Operator · Primo Foods</b><span>Sydney, Australia · 2022 – 2023</span><p>High-volume, food-safety-compliant production with batch quality checks.</p></div>
+        <div class="job"><b>B.Eng, Maritime Transportation Engineering · ITS</b><span>Surabaya · 2016</span><p>Logistics and process simulation.</p></div>
       </div>
     </div>
   </section>
 
-  <section id="projects">
-    <div class="section-head"><span class="section-num">02</span><h2>Seven builds</h2></div>
-    <p class="section-desc">Each is a working n8n workflow (JSON export in the repo) with a written case study covering the architecture, the failure handling, and what I'd do differently with more time. The Bash and Python behind them runs standalone too &mdash; no n8n required.</p>
-
-    <div class="track-head">Operations &amp; integration</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Lead Intake &amp; CRM Sync</h3>
-        <span class="pnum">01 / business ops</span>
-      </div>
-      <p class="one-line">A webhook catches leads from any form, validates and de-duplicates them against a CRM, and alerts sales while auto-replying to the prospect &mdash; all in under a second.</p>
-      <div class="flow">
-        <span class="step trigger">Webhook</span><span class="arrow">→</span>
-        <span class="step">Validate</span><span class="arrow">→</span>
-        <span class="step">Dedupe check</span><span class="arrow">→</span>
-        <span class="step">Update / create CRM row</span><span class="arrow">→</span>
-        <span class="step">Slack + email</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Webhooks</span><span class="chip">Google Sheets API</span><span class="chip">Slack</span><span class="chip">SMTP</span><span class="chip">Idempotency</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-1-lead-intake-crm-sync" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Invoice Intake &amp; Validation Pipeline</h3>
-        <span class="pnum">02 / finance ops</span>
-      </div>
-      <p class="one-line">Watches an AP inbox, extracts and parses invoice PDFs, and routes each one to auto-approval, manager approval, or manual review based on completeness and amount.</p>
-      <div class="flow">
-        <span class="step trigger">IMAP watch</span><span class="arrow">→</span>
-        <span class="step">Extract PDF text</span><span class="arrow">→</span>
-        <span class="step">Parse fields</span><span class="arrow">→</span>
-        <span class="step warn">Amount &gt; $1,000?</span><span class="arrow">→</span>
-        <span class="step">Approve / escalate</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Document parsing</span><span class="chip">Conditional logic</span><span class="chip">Approval workflow</span><span class="chip">Google Sheets</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-2-invoice-processing-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Uptime Monitor &amp; Auto-Remediation</h3>
-        <span class="pnum">03 / devops / sre</span>
-      </div>
-      <p class="one-line">Polls service health endpoints every 5 minutes, tries a Docker container restart before paging a human, and logs every check for later MTTR reporting.</p>
-      <div class="flow">
-        <span class="step trigger">Schedule (5 min)</span><span class="arrow">→</span>
-        <span class="step">Health check</span><span class="arrow">→</span>
-        <span class="step warn">Unhealthy?</span><span class="arrow">→</span>
-        <span class="step">docker restart</span><span class="arrow">→</span>
-        <span class="step">Re-check → escalate or log self-heal</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Docker</span><span class="chip">Scheduled jobs</span><span class="chip">Self-healing</span><span class="chip">Escalation logic</span><span class="chip">Observability</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-3-uptime-monitor-auto-remediation" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
-    </div>
-
-    <div class="track-head">Media &amp; content automation</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Media Render Farm <span style="color:var(--ink-faint);font-weight:400;">(FFmpeg)</span></h3>
-        <span class="pnum">04 / media ops</span>
-      </div>
-      <p class="one-line">One master video in, every ad format out. Expands a request into a variant matrix (aspect ratio &times; hook), transcodes serially so the box doesn't thrash, then <code class="mono">ffprobe</code>s every output &mdash; a render that finishes but writes a 0-byte file is treated as a failure, not a success.</p>
-      <div class="flow">
-        <span class="step trigger">Webhook</span><span class="arrow">→</span>
-        <span class="step">Build variant matrix</span><span class="arrow">→</span>
-        <span class="step">FFmpeg (one at a time)</span><span class="arrow">→</span>
-        <span class="step warn">ffprobe vs spec</span><span class="arrow">→</span>
-        <span class="step">Manifest / reject</span>
-      </div>
-      <p class="evidence">Verifies duration, byte size, and actual vs requested dimensions. Renders to <code>.partial</code> then atomically moves &mdash; a crash leaves nothing rather than a half-written file that looks finished.</p>
-      <div class="project-tags">
-        <span class="chip strong">FFmpeg</span><span class="chip strong">Bash</span><span class="chip">Video processing</span><span class="chip">Docker</span><span class="chip">Loudness normalisation</span><span class="chip">Batch queueing</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-4-media-render-farm" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-4-media-render-farm/scripts/render_variant.sh" target="_blank" rel="noopener">↗ render_variant.sh</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Generative Creative Factory <span style="color:var(--ink-faint);font-weight:400;">(ComfyUI / SDXL)</span></h3>
-        <span class="pnum">05 / generative ai</span>
-      </div>
-      <p class="one-line">Marketing fills in a spreadsheet row; a GPU box returns a full set of placement-ready creatives. The ComfyUI API-format node graph is built <em>in code</em> from the brief, so nobody touches the node editor &mdash; and the polling loop gives up after ~5 minutes instead of hanging forever on a wedged queue.</p>
-      <div class="flow">
-        <span class="step trigger">Schedule 06:00</span><span class="arrow">→</span>
-        <span class="step">Build ComfyUI graph</span><span class="arrow">→</span>
-        <span class="step">Queue on GPU</span><span class="arrow">→</span>
-        <span class="step warn">Poll ×15 max</span><span class="arrow">→</span>
-        <span class="step">Python post-process</span>
-      </div>
-      <p class="evidence">Post-processing re-saves as JPEG specifically to strip the PNG text chunks where ComfyUI embeds your full prompt graph &mdash; that should not ship to an ad network.</p>
-      <div class="project-tags">
-        <span class="chip strong">Python</span><span class="chip strong">ComfyUI / SDXL</span><span class="chip">Pillow</span><span class="chip">Async job polling</span><span class="chip">Generative AI workflows</span><span class="chip">Content automation</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-5-generative-creative-factory" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-5-generative-creative-factory/scripts/postprocess_creative.py" target="_blank" rel="noopener">↗ postprocess_creative.py</a>
-      </div>
-    </div>
-
-    <div class="track-head">Growth &amp; performance</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>DCO Engine <span style="color:var(--ink-faint);font-weight:400;">&mdash; creative performance loop</span></h3>
-        <span class="pnum">06 / media buying</span>
-      </div>
-      <p class="one-line">Joins ad-platform spend to affiliate revenue on <code class="mono">sub_id</code>, rolls up per-variant CTR/CVR/CPA/ROAS/EPC, then <strong>refuses to decide anything</strong> until a variant clears both a volume floor and a significance test. Winners get a capped +20% budget step; losers get paused and automatically queue their own replacement brief.</p>
-      <div class="flow">
-        <span class="step trigger">Every 6h</span><span class="arrow">→</span>
-        <span class="step">Join spend + revenue</span><span class="arrow">→</span>
-        <span class="step warn">Volume floor</span><span class="arrow">→</span>
-        <span class="step warn">z-test + Bonferroni</span><span class="arrow">→</span>
-        <span class="step">Scale / pause / hold</span>
-      </div>
-      <p class="evidence">Testing six variants at &alpha;=0.05 gives a ~26% chance of a false winner. The correction holds that at 5% &mdash; so a +40% "lift" at p=0.019 gets held for another cycle rather than scaled. A hard ROAS floor overrides the statistics entirely.</p>
-      <div class="project-tags">
-        <span class="chip strong">DCO</span><span class="chip strong">A/B testing</span><span class="chip">Media buying</span><span class="chip">Performance marketing</span><span class="chip">Affiliate APIs</span><span class="chip">Programmatic</span><span class="chip">Python statistics</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-6-dco-engine" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-6-dco-engine/scripts/ab_significance.py" target="_blank" rel="noopener">↗ ab_significance.py</a>
-      </div>
-    </div>
-
-    <div class="track-head">Infrastructure &amp; data</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>VPS Ops &amp; Nightly Data Pipeline</h3>
-        <span class="pnum">07 / infra / data</span>
-      </div>
-      <p class="one-line">The unglamorous one that keeps everything else alive. SSHes into an Ubuntu VPS, runs a Bash healthcheck that returns JSON, self-heals disk pressure <em>and re-checks that it worked</em>, verifies the backup actually contains bytes, then runs an idempotent Python ETL into Postgres and asserts data quality afterwards.</p>
-      <div class="flow">
-        <span class="step trigger">Nightly 02:00</span><span class="arrow">→</span>
-        <span class="step">Healthcheck → self-heal</span><span class="arrow">→</span>
-        <span class="step warn">Verify backup</span><span class="arrow">→</span>
-        <span class="step">Python ETL → Postgres</span><span class="arrow">→</span>
-        <span class="step warn">DQ gate / quarantine</span>
-      </div>
-      <p class="evidence">A 60% row-count drop versus the trailing week looks exactly like a quiet day &mdash; so it's caught and the load is quarantined. Stale-but-correct dashboards get a question; fresh-but-wrong ones get a decision made on them.</p>
-      <div class="project-tags">
-        <span class="chip strong">Linux / Ubuntu VPS</span><span class="chip strong">Bash</span><span class="chip strong">Python</span><span class="chip">PostgreSQL</span><span class="chip">Data pipelines</span><span class="chip">Idempotent ETL</span><span class="chip">SSH</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline/scripts" target="_blank" rel="noopener">↗ 3 scripts</a>
+  <section id="contact">
+    <div class="contact">
+      <h2>Which process is costing you the most?</h2>
+      <p>Tell me about it. I'll send back a short plan: what to automate first, what it should save, and how we'd prove it.</p>
+      <div class="cta" style="justify-content:center">
+        <a class="btn primary" href="mailto:wicitradyaksa@gmail.com?subject=Free%20process%20review">Email wicitradyaksa@gmail.com</a>
+        <a class="btn" href="https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/" target="_blank" rel="noopener">LinkedIn</a>
+        <a class="btn" href="https://github.com/wicitradyaksa/automation-portfolio" target="_blank" rel="noopener">GitHub</a>
       </div>
     </div>
   </section>
 
-  <section id="loop">
-    <div class="section-head"><span class="section-num">03</span><h2>They connect to each other</h2></div>
-    <p class="section-desc">Projects 04, 05 and 06 aren't three separate demos &mdash; they're one self-refilling loop. A creative that gets paused writes a new brief row into the same sheet the generation workflow reads at 06:00 the next morning.</p>
+</main>
 
-    <svg class="loop-diagram" viewBox="0 0 660 210" role="img" aria-label="Diagram: a creative brief flows into the generative factory, then the render farm, then the DCO engine, which feeds paused creatives back into the brief queue as a feedback loop">
-      <defs>
-        <marker id="loop-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" class="ld-arrow"></path>
-        </marker>
-      </defs>
-
-      <path class="ld-edge on" d="M116,42 H166" marker-end="url(#loop-arrow)"></path>
-      <path class="ld-edge on" d="M296,42 H346" marker-end="url(#loop-arrow)"></path>
-      <path class="ld-edge on" d="M476,42 H526" marker-end="url(#loop-arrow)"></path>
-
-      <path class="ld-edge feedback" d="M580,68 V150 H60 V68" marker-end="url(#loop-arrow)"></path>
-      <text class="ld-label" x="320" y="167" text-anchor="middle">paused creative → new brief queued automatically</text>
-
-      <g class="ld-node">
-        <rect x="16" y="20" width="100" height="44" rx="10"></rect>
-        <text x="66" y="38" text-anchor="middle">Brief</text>
-        <text x="66" y="52" text-anchor="middle" class="sub">sheet row</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="166" y="20" width="130" height="44" rx="10"></rect>
-        <text x="231" y="38" text-anchor="middle">05 · Generate</text>
-        <text x="231" y="52" text-anchor="middle" class="sub">ComfyUI / SDXL</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="346" y="20" width="130" height="44" rx="10"></rect>
-        <text x="411" y="38" text-anchor="middle">04 · Render</text>
-        <text x="411" y="52" text-anchor="middle" class="sub">FFmpeg variants</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="526" y="20" width="118" height="44" rx="10"></rect>
-        <text x="585" y="38" text-anchor="middle">06 · Test</text>
-        <text x="585" y="52" text-anchor="middle" class="sub">scale / pause</text>
-      </g>
-    </svg>
-
-    <p class="section-desc" style="margin:18px auto 0;text-align:center;">Two workflows with a clean contract between them beat one that does both jobs badly &mdash; and each can be tested, restarted or replaced on its own.</p>
-  </section>
-
-  <section id="skills">
-    <div class="section-head"><span class="section-num">04</span><h2>Toolbox</h2></div>
-    <p class="section-desc">Highlighted items are the ones with code in the repo you can read, run, and break.</p>
-    <div class="skill-groups">
-
-      <div class="skill-group">
-        <h3>Core automation &amp; engineering</h3>
-        <div class="chip-row">
-          <span class="chip strong">n8n</span><span class="chip">Workflow automation</span><span class="chip">Process automation</span>
-          <span class="chip">API integration</span><span class="chip">System integration</span><span class="chip">Scripting</span>
-          <span class="chip">Data pipelines</span><span class="chip">Task automation</span>
-          <span class="chip">Error handling &amp; alerting</span><span class="chip">Human-in-the-loop design</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Languages &amp; stack</h3>
-        <div class="chip-row">
-          <span class="chip strong">Python</span><span class="chip strong">Bash / shell</span><span class="chip strong">Docker &amp; Compose</span>
-          <span class="chip strong">Linux / Ubuntu VPS</span><span class="chip">JavaScript (Code nodes)</span>
-          <span class="chip">REST APIs &amp; webhooks</span><span class="chip">PostgreSQL / SQL</span><span class="chip">Git &amp; GitHub</span>
-          <span class="chip">SSH</span><span class="chip">Google Sheets API</span><span class="chip">Slack API</span><span class="chip">IMAP / SMTP</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Media &amp; content automation</h3>
-        <div class="chip-row">
-          <span class="chip strong">FFmpeg</span><span class="chip">Video processing</span><span class="chip">Media automation</span>
-          <span class="chip">Automated content workflows</span><span class="chip strong">ComfyUI / Stable Diffusion</span>
-          <span class="chip">Generative AI workflows</span><span class="chip">Pillow / image processing</span>
-          <span class="chip">Dynamic Creative Optimization</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Traffic buying &amp; performance</h3>
-        <div class="chip-row">
-          <span class="chip">Media buying</span><span class="chip">Performance marketing</span><span class="chip">Programmatic advertising</span>
-          <span class="chip">Affiliate marketing</span><span class="chip">Traffic acquisition</span>
-          <span class="chip strong">A/B testing &amp; significance</span><span class="chip">Campaign optimization</span>
-          <span class="chip">ROAS / CPA / EPC modelling</span>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <footer id="contact">
-    <h2 style="font-size:18px;margin:0;">Let's talk</h2>
-    <p class="section-desc" style="margin:0;">Open to automation engineer, workflow engineer, media-automation and growth-engineering roles. Happy to walk through any of these builds live, or take on a small automation challenge.</p>
-    <div class="contact-row">
-      <a href="mailto:wicitradyaksa@gmail.com">✉ wicitradyaksa@gmail.com</a>
-      <a href="https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/" target="_blank" rel="noopener">↗ LinkedIn</a>
-      <a href="https://github.com/wicitradyaksa" target="_blank" rel="noopener">↗ GitHub</a>
-    </div>
-    <p class="fine">Push this repo to github.com/wicitradyaksa/automation-portfolio (or update the links above) so the buttons on this page resolve correctly.</p>
-  </footer>
-
-</div>
+<footer>
+  <div class="wrap">Built with Claude's help as a working starting point. Figures are labelled real, benchmark or estimate; <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/docs/impact-estimates.md" target="_blank" rel="noopener">assumptions here</a>.</div>
+</footer>
 
 </body>
 </html>

@@ -1,20 +1,38 @@
+# Local n8n for the seven portfolio workflows (projects 1-7).
+#
+#   cp .env.example .env     # then fill in the IDs / URLs you actually use
+#   docker compose up -d     # http://localhost:5678 - create the owner account on first visit
+#
+# The stock n8n image has no FFmpeg, ffprobe or Pillow. Projects 4 and 5 need them for
+# real renders; the other workflows run as-is.
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     restart: unless-stopped
     ports:
       - "5678:5678"
+    # Every variable in .env (sheet IDs, API URLs, tokens, DCO thresholds) reaches the
+    # workflows as $env.NAME.
+    env_file: .env
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
       - N8N_HOST=${N8N_HOST:-localhost}
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
       - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
+      # The workflows read configuration through $env. Recent n8n releases block this by default.
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # Recent n8n releases exclude Execute Command by default. Projects 3-6 use it.
+      # This re-enables every node: only do this on an instance you control.
+      - NODES_EXCLUDE=[]
+      # Read Render File (project 4) may only read under /data.
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./data:/data
+      - ./project-4-media-render-farm/scripts/render_variant.sh:/data/scripts/render_variant.sh:ro
+      - ./project-5-generative-creative-factory/scripts/postprocess_creative.py:/data/scripts/postprocess_creative.py:ro
+      - ./project-6-dco-engine/scripts/ab_significance.py:/data/scripts/ab_significance.py:ro
 
 volumes:
   n8n_data:

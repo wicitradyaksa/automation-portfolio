@@ -11,7 +11,7 @@
         -320
       ],
       "parameters": {
-        "content": "## Self-Hosted Uptime Monitor & Auto-Remediation\\nPolls each service's health endpoint every 5 minutes. On failure it tries a self-heal first (`docker restart`) before waking a human \u2014 only escalating to on-call in Slack if the restart didn't fix it. Every check and every incident is logged for a later postmortem / MTTR report.",
+        "content": "## Self-Hosted Uptime Monitor & Auto-Remediation\nPolls each service's health endpoint every 5 minutes. On failure it tries a self-heal first (`docker restart`) before waking a human \u2014 only escalating to on-call in Slack if the restart didn't fix it. Every check and every incident is logged for a later postmortem / MTTR report.",
         "height": 240,
         "width": 460,
         "color": 6
@@ -21,7 +21,7 @@
       "id": "603802b7-42a2-4d23-bdfd-ae7258f0a7e1",
       "name": "Every 5 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1,
+      "typeVersion": 1.2,
       "position": [
         -60,
         0
@@ -41,7 +41,7 @@
       "id": "7a6a7406-beb1-4a1c-a46d-3f0f4eac5002",
       "name": "Set Target Services",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         160,
         0
@@ -54,25 +54,31 @@
       "id": "2e0ed3b2-de7c-4e3b-8869-cc74aacf3635",
       "name": "Health Check",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
+      "typeVersion": 4.2,
       "position": [
         380,
         0
       ],
       "parameters": {
-        "url": "={{$json.url}}",
         "method": "GET",
+        "url": "={{ $json.url }}",
         "options": {
-          "timeout": 5000
-        },
-        "onError": "continueRegularOutput"
-      }
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "a70d30d3-3b71-4dba-9ffc-3e9af810342e",
       "name": "Is Unhealthy?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         600,
         0
@@ -82,16 +88,17 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "loose"
           },
           "conditions": [
             {
-              "leftValue": "={{$json.statusCode}}",
+              "leftValue": "={{ $json.statusCode ?? 0 }}",
               "rightValue": 200,
               "operator": {
                 "type": "number",
                 "operation": "notEquals"
-              }
+              },
+              "id": "81703a31-d8b2-5526-9f62-4c2cb8ef0c1c"
             }
           ],
           "combinator": "or"
@@ -102,7 +109,7 @@
       "id": "36fcca78-4807-4b12-b417-741426771ed4",
       "name": "Log Heartbeat (OK)",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         820,
         90
@@ -111,7 +118,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.OPS_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -122,11 +129,14 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "service": "={{$json.service}}",
+            "service": "={{$('Set Target Services').item.json.service}}",
             "status": "up",
             "checkedAt": "={{$now.toISO()}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -145,14 +155,17 @@
         -80
       ],
       "parameters": {
-        "command": "=docker restart {{$json.container}}"
-      }
+        "command": "=docker restart {{ $('Set Target Services').item.json.container }} 2>&1 || echo \"restart failed: {{ $('Set Target Services').item.json.container }}\"",
+        "executeOnce": false
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Runs once per service (Execute Once is off: the node's default is to run a single time for\nthe whole batch). The command always exits 0; the re-check below decides whether it worked."
     },
     {
       "id": "5e8711d7-bd87-4c62-bdbd-0ad7d15a9852",
       "name": "Wait 30s For Recovery",
       "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [
         1040,
         -80
@@ -166,25 +179,31 @@
       "id": "cc0118dc-0694-450d-a3de-4cfad0741bfb",
       "name": "Re-Check Health",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
+      "typeVersion": 4.2,
       "position": [
         1260,
         -80
       ],
       "parameters": {
-        "url": "={{$json.url}}",
         "method": "GET",
+        "url": "={{ $('Set Target Services').item.json.url }}",
         "options": {
-          "timeout": 5000
-        },
-        "onError": "continueRegularOutput"
-      }
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "339f3f9a-3657-4601-8565-9aa26bf1aa91",
       "name": "Still Down After Restart?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [
         1480,
         -80
@@ -194,16 +213,17 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "loose"
           },
           "conditions": [
             {
-              "leftValue": "={{$json.statusCode}}",
+              "leftValue": "={{ $json.statusCode ?? 0 }}",
               "rightValue": 200,
               "operator": {
                 "type": "number",
                 "operation": "notEquals"
-              }
+              },
+              "id": "97af04c5-7bc4-5ad4-a597-d886156b7bac"
             }
           ],
           "combinator": "or"
@@ -214,7 +234,7 @@
       "id": "50d1ce54-9895-4b90-a66f-129210f58720",
       "name": "Escalate To On-Call",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1700,
         -160
@@ -228,7 +248,8 @@
           "value": "#incidents",
           "mode": "name"
         },
-        "text": "=:rotating_light::rotating_light: *{{$json.service}}* is still down after an automatic restart \u2014 paging on-call. <!subteam^ONCALL>"
+        "text": "=:rotating_light::rotating_light: *{{$('Set Target Services').item.json.service}}* is still down after an automatic restart \u2014 paging on-call. <!subteam^ONCALL>",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -241,7 +262,7 @@
       "id": "fb99ea03-662c-4c93-b02d-0ae672091387",
       "name": "Log Incident",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1700,
         -20
@@ -250,7 +271,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.OPS_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -261,11 +282,14 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "service": "={{$json.service}}",
+            "service": "={{$('Set Target Services').item.json.service}}",
             "outcome": "escalated",
             "detectedAt": "={{$now.toISO()}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -278,7 +302,7 @@
       "id": "bc8c4520-2258-46e1-a7fe-f089d477da1b",
       "name": "Notify Self-Healed",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         1700,
         60
@@ -292,7 +316,8 @@
           "value": "#incidents",
           "mode": "name"
         },
-        "text": "=:white_check_mark: *{{$json.service}}* was down but recovered automatically after a container restart."
+        "text": "=:white_check_mark: *{{$('Set Target Services').item.json.service}}* was down but recovered automatically after a container restart.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -305,7 +330,7 @@
       "id": "450de08f-958f-45c6-875a-f6a68831097a",
       "name": "Log Self-Heal",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 1,
+      "typeVersion": 4.5,
       "position": [
         1700,
         140
@@ -314,7 +339,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "={{$json.sheetId}}",
+          "value": "={{ $env.OPS_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -325,11 +350,14 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "service": "={{$json.service}}",
+            "service": "={{$('Set Target Services').item.json.service}}",
             "outcome": "self_healed",
             "detectedAt": "={{$now.toISO()}}"
-          }
-        }
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -353,7 +381,7 @@
       "id": "72e3f91a-f913-4753-ae6c-72417985bb52",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         160,
         260
@@ -367,7 +395,8 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: Uptime Monitor workflow itself failed: {{$json.execution.error.message}}"
+        "text": "=:x: Uptime Monitor workflow itself failed: {{$json.execution.error.message}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {

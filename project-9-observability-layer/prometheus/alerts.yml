@@ -1,0 +1,86 @@
+# GENERATED FILE -- do not edit by hand.
+# Source: obs/alerts.py. Regenerate with:  py -m obs.alerts
+# tests/test_alerts_and_dashboard.py fails the build if this drifts.
+groups:
+  - name: n8n-estate
+    rules:
+      - alert: WorkflowStoppedRunning
+        expr: "time() - n8n_workflow_last_success_timestamp_seconds{workflow!=\"\"} > 5400"
+        for: 10m
+        labels:
+          severity: critical
+          team: automation
+        annotations:
+          summary: "{{ $labels.workflow }} has not succeeded in over 90 minutes"
+          description: "The last successful run was more than 90 minutes ago. For a workflow on a schedule this usually means it is not running at all -- a disabled trigger, a dead n8n worker, or a credential that expired. Note that a failure-rate alert CANNOT detect this: no runs means no failures."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#workflowstoppedrunning"
+      - alert: WorkflowErrorRateHigh
+        expr: |-
+          sum by (workflow) (rate(n8n_workflow_runs_total{status="error"}[15m]))
+            /
+          clamp_min(sum by (workflow) (rate(n8n_workflow_runs_total[15m])), 0.0001)
+            > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          team: automation
+        annotations:
+          summary: "{{ $labels.workflow }} is failing more than 10% of runs"
+          description: "Over 10% of executions in the last 15 minutes ended in error. The clamp_min in the denominator is deliberate: without it, a workflow with zero runs divides by zero and the alert flaps between firing and 'no data' forever."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#workflowerrorratehigh"
+      - alert: WorkflowDurationDegraded
+        expr: |-
+          histogram_quantile(0.95,
+            sum by (workflow, le) (rate(n8n_workflow_duration_seconds_bucket[30m]))
+          ) > 300
+        for: 20m
+        labels:
+          severity: warning
+          team: automation
+        annotations:
+          summary: "{{ $labels.workflow }} p95 duration is over 5 minutes"
+          description: "p95 rather than mean, because the mean hides the tail and the tail is what times out. Sum the buckets BEFORE histogram_quantile -- quantile-of-an-average is not an average-of-quantiles, and doing it the other way round gives a plausible number that is wrong."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#workflowdurationdegraded"
+      - alert: WorkflowRetriesClimbing
+        expr: "sum by (workflow) (rate(n8n_workflow_retries_total[10m])) > 0.2"
+        for: 10m
+        labels:
+          severity: info
+          team: automation
+        annotations:
+          summary: "{{ $labels.workflow }} is retrying more than usual"
+          description: "Retries are absorbing failures that have not surfaced yet. This is the earliest signal available and it is usually 20-30 minutes ahead of the error-rate alert. Severity is info on purpose: it is a hint to look, not a reason to wake someone."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#workflowretriesclimbing"
+      - alert: WorkflowSucceedingButDoingNothing
+        expr: |-
+          sum by (workflow) (rate(n8n_workflow_runs_total{status="success"}[1h])) > 0
+            and
+          sum by (workflow) (rate(n8n_workflow_items_processed_total[1h])) == 0
+        for: 2h
+        labels:
+          severity: warning
+          team: automation
+        annotations:
+          summary: "{{ $labels.workflow }} is succeeding but processing zero items"
+          description: "Exit code 0 is not evidence that a job did its work. A workflow whose source went empty -- an inbox filter that stopped matching, a sheet that was renamed, an API returning an empty page -- succeeds forever while delivering nothing. This is the same class of bug as a backup that completes and contains no files."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#workflowsucceedingbutdoingnothing"
+      - alert: CollectorRejectingEvents
+        expr: "rate(n8n_collector_rejected_events_total[15m]) > 0"
+        for: 15m
+        labels:
+          severity: warning
+          team: automation
+        annotations:
+          summary: "The metrics collector is rejecting events"
+          description: "Malformed events are being dropped, so the dashboards are now under-reporting by an unknown amount. Monitoring that has quietly gone blind is worse than no monitoring, because it is still trusted."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#collectorrejectingevents"
+      - alert: MetricsEndpointDown
+        expr: "up{job=\"n8n-observability\"} == 0"
+        for: 5m
+        labels:
+          severity: critical
+          team: automation
+        annotations:
+          summary: "Prometheus cannot scrape the observability exporter"
+          description: "Every other rule in this file depends on this scrape. While it is down, the absence of alerts means nothing -- which is precisely when people assume it means everything is fine."
+          runbook_url: "https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md#metricsendpointdown"

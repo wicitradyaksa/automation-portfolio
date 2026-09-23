@@ -2,11 +2,22 @@
 #
 #   pip install -r requirements.txt
 #
-# Note which script needs what — none of them need all of it:
+# Note which script needs what — none of them need all of it, and the three
+# Python projects (8, 9, 10) need NONE of it:
 #
 #   project-5 .../postprocess_creative.py   Pillow
 #   project-6 .../ab_significance.py        stdlib only (math.erf, no SciPy)
 #   project-7 .../etl_load.py               psycopg2-binary
+#
+#   project-8-integration-kit               stdlib only
+#   project-9-observability-layer          stdlib only
+#   project-10-migration-case-study         stdlib only
+#
+# That is deliberate, not a limitation. `py run_tests.py` runs all 223 tests
+# with nothing installed, which is the only reason a reviewer will actually
+# run them.
+#
+# The test suites use unittest, not pytest, for the same reason.
 
 Pillow>=10.0.0
 psycopg2-binary>=2.9.9

@@ -139,10 +139,9 @@ def main() -> int:
         "placements": wanted,
         "assets": assets,
         "errors": errors,
-        # Nothing here writes video, so the handoff to the FFmpeg render farm is
-        # opt-in: the workflow only forwards briefs that name a master video.
-        "videoSourcePath": None,
-        "hooks": [],
+        # Brief fields such as videoSourcePath and hooks are deliberately absent: the
+        # workflow merges this output over the brief, so echoing them here as empty
+        # values would wipe the brief's own and silently cancel the render-farm hand-off.
     }))
     return 0 if ok else 1
 

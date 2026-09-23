@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: n8n-estate
+    type: file
+    disableDeletion: true
+    # The dashboard is generated from obs/dashboard.py and mounted read-only.
+    # Editing it in the Grafana UI would be silently discarded on restart, so
+    # allowUiUpdates stays false to make that obvious rather than surprising.
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

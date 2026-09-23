@@ -41,7 +41,7 @@
       "id": "6ca9d150-bdfd-4e74-8d82-3ae7b1e2ecc4",
       "name": "Read Creative Briefs",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4,
+      "typeVersion": 4.5,
       "position": [
         160,
         0
@@ -50,7 +50,7 @@
         "operation": "read",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.CREATIVE_SHEET_ID}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -73,7 +73,8 @@
           "id": "gsheets_cred5",
           "name": "Google Sheets - Creative Ops (demo)"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "id": "30b5a69c-757b-434b-b577-b41a081e3d1f",
@@ -93,12 +94,13 @@
           },
           "conditions": [
             {
-              "leftValue": "={{$items().length}}",
-              "rightValue": 0,
+              "leftValue": "={{ $json.briefId ?? '' }}",
               "operator": {
-                "type": "number",
-                "operation": "gt"
-              }
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "id": "1a0e3b97-4aa0-5a54-9254-269d28447295"
             }
           ],
           "combinator": "and"
@@ -129,14 +131,14 @@
         -80
       ],
       "parameters": {
-        "jsCode": "// ComfyUI's /prompt endpoint takes a node graph in 'API format'. We build it\n// programmatically from the brief row so marketing never touches the node editor.\nconst b = $input.first().json;\n\nconst seed = b.seed && Number(b.seed) ? Number(b.seed) : Math.floor(Math.random() * 1e15);\nconst steps = Number(b.steps) || 28;\nconst cfg   = Number(b.cfg)   || 6.5;\nconst w     = Number(b.width) || 1024;\nconst h     = Number(b.height)|| 1024;\n\nconst positive = [b.subject, b.style, b.lighting, 'high detail, commercial product photography']\n  .filter(Boolean).join(', ');\nconst negative = b.negative || 'text, watermark, logo, lowres, deformed hands, extra limbs';\n\nconst graph = {\n  '1': { class_type: 'CheckpointLoaderSimple',\n         inputs: { ckpt_name: b.checkpoint || 'sd_xl_base_1.0.safetensors' } },\n  '2': { class_type: 'CLIPTextEncode', inputs: { text: positive, clip: ['1', 1] } },\n  '3': { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['1', 1] } },\n  '4': { class_type: 'EmptyLatentImage',\n         inputs: { width: w, height: h, batch_size: Number(b.batchSize) || 4 } },\n  '5': { class_type: 'KSampler',\n         inputs: { seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras',\n                   denoise: 1, model: ['1', 0], positive: ['2', 0],\n                   negative: ['3', 0], latent_image: ['4', 0] } },\n  '6': { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },\n  '7': { class_type: 'SaveImage',\n         inputs: { filename_prefix: `campaign/${b.campaign}/${b.briefId}`, images: ['6', 0] } }\n};\n\nreturn [{ json: {\n  briefId: b.briefId, campaign: b.campaign, rowNumber: b.row_number,\n  seed, steps, cfg, width: w, height: h,\n  positivePrompt: positive,\n  payload: { prompt: graph, client_id: `n8n-${b.briefId}` },\n  attempt: 0, startedAt: new Date().toISOString()\n}}];"
+        "jsCode": "// ComfyUI's /prompt endpoint takes a node graph in 'API format'. We build it\n// programmatically from the brief row so marketing never touches the node editor.\nconst b = $input.first().json;\n\nconst seed = b.seed && Number(b.seed) ? Number(b.seed) : Math.floor(Math.random() * 1e15);\nconst steps = Number(b.steps) || 28;\nconst cfg   = Number(b.cfg)   || 6.5;\nconst w     = Number(b.width) || 1024;\nconst h     = Number(b.height)|| 1024;\n\nconst positive = [b.subject, b.style, b.lighting, 'high detail, commercial product photography']\n  .filter(Boolean).join(', ');\nconst negative = b.negative || 'text, watermark, logo, lowres, deformed hands, extra limbs';\n\nconst graph = {\n  '1': { class_type: 'CheckpointLoaderSimple',\n         inputs: { ckpt_name: b.checkpoint || 'sd_xl_base_1.0.safetensors' } },\n  '2': { class_type: 'CLIPTextEncode', inputs: { text: positive, clip: ['1', 1] } },\n  '3': { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['1', 1] } },\n  '4': { class_type: 'EmptyLatentImage',\n         inputs: { width: w, height: h, batch_size: Number(b.batchSize) || 4 } },\n  '5': { class_type: 'KSampler',\n         inputs: { seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras',\n                   denoise: 1, model: ['1', 0], positive: ['2', 0],\n                   negative: ['3', 0], latent_image: ['4', 0] } },\n  '6': { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },\n  '7': { class_type: 'SaveImage',\n         inputs: { filename_prefix: `campaign/${b.campaign}/${b.briefId}`, images: ['6', 0] } }\n};\n\nreturn [{ json: {\n  briefId: b.briefId, campaign: b.campaign, rowNumber: b.row_number,\n  seed, steps, cfg, width: w, height: h,\n  positivePrompt: positive,\n  payload: { prompt: graph, client_id: `n8n-${b.briefId}` },\n  // Optional: briefs with a master video are handed to the Render Farm (Project 4).\n  videoSourcePath: b.videoSourcePath || null,\n  hooks: String(b.hooks || '').split('|').map(s => s.trim()).filter(Boolean),\n  attempt: 0, startedAt: new Date().toISOString()\n}}];"
       }
     },
     {
       "id": "2a0bc6f1-132d-4f7a-bf4d-494a905731cc",
       "name": "Queue On ComfyUI",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         1040,
         -80
@@ -148,15 +150,13 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {
-          "timeout": 30000,
-          "retry": {
-            "retryOnFail": true,
-            "maxTries": 3,
-            "waitBetweenTries": 5000
-          }
+          "timeout": 30000
         }
       },
-      "notes": "Returns { prompt_id }. Generation is async \u2014 we poll /history below."
+      "notes": "Returns { prompt_id }. Generation is async \u2014 we poll /history below.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "id": "be0a9188-309b-474b-80c9-66cce8e1a6c5",
@@ -176,19 +176,19 @@
       "id": "08eaf03e-4bb9-4e52-b34e-7b9acdc50d0c",
       "name": "Poll Generation History",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         1480,
         -80
       ],
       "parameters": {
         "method": "GET",
-        "url": "={{$env.COMFYUI_URL}}/history/{{$json.prompt_id}}",
+        "url": "={{ $env.COMFYUI_URL }}/history/{{ $('Queue On ComfyUI').first().json.prompt_id }}",
         "options": {
           "timeout": 15000
-        },
-        "onError": "continueRegularOutput"
-      }
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "586cf1db-eb15-4e89-9d60-61f66a52198e",
@@ -200,7 +200,7 @@
         -80
       ],
       "parameters": {
-        "jsCode": "// ComfyUI returns {} until the job lands in history. Bail out after 15 polls (~5 min)\n// rather than looping forever on a wedged GPU queue.\nconst ctx   = $('Build ComfyUI Graph').first().json;\nconst pid   = $('Queue On ComfyUI').first().json.prompt_id;\nconst hist  = $input.first().json[pid] || $input.first().json;\nconst polls = (ctx.attempt || 0) + 1;\n\nconst outputs = (hist && hist.outputs) ? hist.outputs : null;\nconst images  = outputs ? Object.values(outputs).flatMap(o => o.images || []) : [];\n\nreturn [{ json: {\n  ...ctx,\n  promptId: pid,\n  attempt: polls,\n  done: images.length > 0,\n  timedOut: images.length === 0 && polls >= 15,\n  images: images.map(i => ({\n    filename: i.filename, subfolder: i.subfolder, type: i.type,\n    url: `${$env.COMFYUI_URL}/view?filename=${encodeURIComponent(i.filename)}`\n         + `&subfolder=${encodeURIComponent(i.subfolder||'')}&type=${i.type||'output'}`\n  }))\n}}];"
+        "jsCode": "// ComfyUI returns {} until the job lands in history. Give up after ~5 minutes\n// rather than looping forever on a wedged GPU queue. Elapsed time is used instead\n// of a counter because the poll response replaces $json on every loop.\nconst MAX_WAIT_MS = 5 * 60 * 1000, POLL_MS = 20 * 1000;\nconst ctx  = $('Build ComfyUI Graph').first().json;\nconst pid  = $('Queue On ComfyUI').first().json.prompt_id;\nconst hist = $input.first().json[pid] || {};\nconst elapsed = Date.now() - new Date(ctx.startedAt).getTime();\n\nconst outputs = hist.outputs || null;\nconst images  = outputs ? Object.values(outputs).flatMap(o => o.images || []) : [];\n\nreturn [{ json: {\n  ...ctx,\n  promptId: pid,\n  attempt: Math.max(1, Math.round(elapsed / POLL_MS)),\n  elapsedSec: Math.round(elapsed / 1000),\n  done: images.length > 0,\n  timedOut: images.length === 0 && elapsed >= MAX_WAIT_MS,\n  images: images.map(i => ({\n    filename: i.filename, subfolder: i.subfolder, type: i.type,\n    url: `${$env.COMFYUI_URL}/view?filename=${encodeURIComponent(i.filename)}`\n         + `&subfolder=${encodeURIComponent(i.subfolder||'')}&type=${i.type||'output'}`\n  }))\n}}];"
       }
     },
     {
@@ -222,11 +222,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.done}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "4256f069-9396-5b1a-b1a6-4650909c9d49"
             }
           ],
           "combinator": "and"
@@ -252,11 +253,12 @@
           "conditions": [
             {
               "leftValue": "={{$json.timedOut}}",
-              "rightValue": true,
               "operator": {
                 "type": "boolean",
-                "operation": "true"
-              }
+                "operation": "true",
+                "singleValue": true
+              },
+              "id": "e3619076-b12a-531f-9c71-b96d669f01c6"
             }
           ],
           "combinator": "and"
@@ -273,7 +275,8 @@
         -180
       ],
       "parameters": {
-        "command": "=python3 /data/scripts/postprocess_creative.py --brief '{{$json.briefId}}' --campaign '{{$json.campaign}}' --images '{{ JSON.stringify($json.images).replaceAll(\"'\", \"\") }}' --out-dir /data/creatives"
+        "command": "=python3 /data/scripts/postprocess_creative.py --brief '{{$json.briefId}}' --campaign '{{$json.campaign}}' --images '{{ JSON.stringify($json.images).replaceAll(\"'\", \"\") }}' --out-dir /data/creatives",
+        "executeOnce": false
       },
       "notes": "Python: downloads each generation, strips EXIF, applies the brand safe-area\noverlay, and exports every ad placement size (1:1, 4:5, 9:16, 1.91:1)."
     },
@@ -287,14 +290,14 @@
         -180
       ],
       "parameters": {
-        "jsCode": "const ctx = $('Check Completion').first().json;\nlet res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`postprocess_creative.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\nreturn [{ json: { ...ctx, ...res, processedAt: new Date().toISOString() } }];"
+        "jsCode": "const ctx = $('Check Completion').first().json;\nlet res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`postprocess_creative.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\n// The script owns the output fields; the brief owns its own metadata, so it wins on overlap.\nreturn [{ json: { ...ctx, ...res,\n  briefId: ctx.briefId, campaign: ctx.campaign,\n  videoSourcePath: ctx.videoSourcePath, hooks: ctx.hooks,\n  processedAt: new Date().toISOString() } }];"
       }
     },
     {
       "id": "56cedd72-69be-4f18-ab58-ddc6fce545c8",
       "name": "Mark Brief Rendered",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4,
+      "typeVersion": 4.5,
       "position": [
         2580,
         -180
@@ -303,7 +306,7 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.CREATIVE_SHEET_ID}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -323,8 +326,10 @@
             "outputDir": "={{$json.outputDir}}",
             "seed": "={{$json.seed}}",
             "renderedAt": "={{$json.processedAt}}"
-          }
-        }
+          },
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -337,7 +342,7 @@
       "id": "552812cb-6ae4-433e-b971-0aacd49045bb",
       "name": "Hand Off To Render Farm",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         2800,
         -180
@@ -347,19 +352,19 @@
         "url": "={{$env.N8N_BASE_URL}}/webhook/render-request",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ assetId: $json.briefId, campaign: $json.campaign, sourcePath: $json.videoSourcePath, formats: ['9:16','1:1','4:5'], hooks: $json.hooks }) }}",
+        "jsonBody": "={{ JSON.stringify({ assetId: $('Parse Creative Output').item.json.briefId, campaign: $('Parse Creative Output').item.json.campaign, sourcePath: $('Parse Creative Output').item.json.videoSourcePath, formats: ['9:16','1:1','4:5'], hooks: $('Parse Creative Output').item.json.hooks }) }}",
         "options": {
           "timeout": 30000
-        },
-        "onError": "continueRegularOutput"
+        }
       },
-      "notes": "Project 5 -> Project 4 handoff. Static creatives that have a video\ncounterpart get pushed straight into the FFmpeg variant factory."
+      "notes": "Project 5 -> Project 4 handoff. Static creatives that have a video\ncounterpart get pushed straight into the FFmpeg variant factory.",
+      "onError": "continueRegularOutput"
     },
     {
       "id": "3116fc6e-6d07-4a6b-bee8-680089b9f5bd",
       "name": "Post Creative Digest",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         3020,
         -180
@@ -373,7 +378,8 @@
           "value": "#creative-ops",
           "mode": "name"
         },
-        "text": "=:art: *{{$json.campaign}}* \u2014 {{$json.assetCount}} new creatives generated for brief `{{$json.briefId}}` (seed {{$json.seed}}). Ready for testing."
+        "text": "=:art: *{{$('Parse Creative Output').item.json.campaign}}* \u2014 {{$('Parse Creative Output').item.json.assetCount}} new creatives generated for brief `{{$('Parse Creative Output').item.json.briefId}}` (seed {{$('Parse Creative Output').item.json.seed}}). Ready for testing.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -386,7 +392,7 @@
       "id": "0e576e2c-29cd-42e6-8a0d-06bac896f491",
       "name": "Mark Brief Failed",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4,
+      "typeVersion": 4.5,
       "position": [
         2140,
         240
@@ -395,7 +401,7 @@
         "operation": "update",
         "documentId": {
           "__rl": true,
-          "value": "={{$env.CREATIVE_SHEET_ID}}",
+          "value": "={{ $env.CREATIVE_SHEET_ID }}",
           "mode": "id"
         },
         "sheetName": {
@@ -411,9 +417,11 @@
           "value": {
             "briefId": "={{$json.briefId}}",
             "status": "failed_timeout",
-            "note": "=ComfyUI did not return images after {{$json.attempt}} polls"
-          }
-        }
+            "note": "=ComfyUI did not return images within {{ $json.elapsedSec }}s"
+          },
+          "schema": []
+        },
+        "options": {}
       },
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -426,7 +434,7 @@
       "id": "3a8623d2-db05-48f1-a78f-5a4f7e2d5d9e",
       "name": "Alert GPU Queue Stuck",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         2360,
         240
@@ -440,7 +448,8 @@
           "value": "#creative-ops",
           "mode": "name"
         },
-        "text": "=:warning: ComfyUI never returned images for brief `{{$json.briefId}}` after {{$json.attempt}} polls \u2014 GPU queue may be wedged."
+        "text": "=:warning: ComfyUI never returned images for brief `{{ $('Check Completion').item.json.briefId }}` after {{ $('Check Completion').item.json.elapsedSec }}s. The GPU queue may be wedged.",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
@@ -486,7 +495,7 @@
       "id": "f5b3bd10-2344-4426-b95c-aba07f15451c",
       "name": "Alert Engineering (Slack)",
       "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         180,
         440
@@ -500,13 +509,46 @@
           "value": "#eng-alerts",
           "mode": "name"
         },
-        "text": "=:x: Generative Creative Factory failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}"
+        "text": "=:x: Generative Creative Factory failed at node *{{$json.execution.lastNodeExecuted}}*: {{$json.execution.error.message}}\nExecution: {{$json.execution.url}}",
+        "otherOptions": {}
       },
       "credentials": {
         "slackApi": {
           "id": "slack_cred5",
           "name": "Slack - Creative Ops (demo)"
         }
+      }
+    },
+    {
+      "id": "3b0d4f6e-8c1a-4d2e-9f70-5a6b7c8d9e10",
+      "name": "Has Master Video?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2380,
+        -120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-video",
+              "leftValue": "={{ $('Parse Creative Output').item.json.videoSourcePath ?? '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       }
     }
   ],
@@ -708,7 +750,7 @@
       "main": [
         [
           {
-            "node": "Hand Off To Render Farm",
+            "node": "Has Master Video?",
             "type": "main",
             "index": 0
           }
@@ -742,6 +784,24 @@
         [
           {
             "node": "Alert Engineering (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Master Video?": {
+      "main": [
+        [
+          {
+            "node": "Hand Off To Render Farm",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post Creative Digest",
             "type": "main",
             "index": 0
           }
