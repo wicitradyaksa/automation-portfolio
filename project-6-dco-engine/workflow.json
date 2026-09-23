@@ -204,7 +204,8 @@
         -110
       ],
       "parameters": {
-        "command": "=python3 /data/scripts/ab_significance.py --variants '{{ JSON.stringify($input.all().map(i => i.json)).replaceAll(\"'\", \"\") }}' --metric cvr --alpha 0.05"
+        "command": "=python3 /data/scripts/ab_significance.py --variants '{{ JSON.stringify($input.all().map(i => i.json)).replaceAll(\"'\", \"\") }}' --metric cvr --alpha 0.05",
+        "executeOnce": true
       },
       "notes": "Two-proportion z-test against the campaign control, with a\nBonferroni correction for the number of variants under test.\nWithout this you are just chasing noise.",
       "executeOnce": true
@@ -515,8 +516,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
       "position": [
-        2440,
-        -110
+        1520,
+        410
       ],
       "parameters": {
         "resource": "message",
@@ -536,7 +537,8 @@
           "name": "Slack - Growth (demo)"
         }
       },
-      "executeOnce": true
+      "executeOnce": true,
+      "notes": "Fed straight from Parse Test Result rather than from Log Decision: Log Decision runs once per\ndecision branch (scale / pause / hold), so a report hung off it would post up to three times."
     },
     {
       "id": "2face8e0-9add-4881-88fe-28dc62ecee60",
@@ -664,6 +666,11 @@
             "node": "Route Decision",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Post Buying Report",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -739,13 +746,7 @@
     },
     "Log Decision": {
       "main": [
-        [
-          {
-            "node": "Post Buying Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Workflow Error": {

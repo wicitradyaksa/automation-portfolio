@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ida Bagus Wicitra Dyaksa — n8n &amp; AI Workflow Automation Engineer</title>
-<meta name="description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable, production-pattern n8n workflows (webhooks, APIs, Code Nodes, error triggers, self-healing ops, FFmpeg, ComfyUI, DCO) plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
+<meta name="description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable n8n workflows (webhooks, APIs, Code Nodes, Error Triggers, data pipelines, generative AI), tested end to end inside a real n8n, plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
 <meta name="author" content="Ida Bagus Wicitra Dyaksa">
 <meta property="og:title" content="Ida Bagus Wicitra Dyaksa — n8n &amp; AI Workflow Automation Engineer">
-<meta property="og:description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable, production-pattern n8n workflows (webhooks, APIs, Code Nodes, error triggers, self-healing ops, FFmpeg, ComfyUI, DCO) plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
+<meta property="og:description" content="n8n &amp; AI Workflow Automation Engineer portfolio of Ida Bagus Wicitra Dyaksa: seven importable n8n workflows (webhooks, APIs, Code Nodes, Error Triggers, data pipelines, generative AI), tested end to end inside a real n8n, plus companion Python for OAuth2/HMAC integrations, observability and measured ROI.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0c8f68">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%230c8f68'/></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -228,8 +229,8 @@
   /* approach */
   .principles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
   }
   .principle {
     background: var(--bg-raised);
@@ -363,9 +364,87 @@
   .evidence code { color: var(--ink-soft); }
 
   @media (max-width: 640px) {
+    .navlinks { flex-wrap: wrap; gap: 8px 14px; }
+    .flow .step { white-space: normal; }
     .hero { padding-top: 36px; }
     section { padding-block: 34px; }
   }
+
+  /* ---------- additions for the n8n rewrite ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .stat {
+    background: var(--bg-raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: grid;
+    gap: 2px;
+  }
+  .stat .n { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: var(--ink); }
+  .stat .l { font-size: 12.5px; color: var(--ink-faint); }
+
+  .impact {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: var(--accent-soft);
+    border-radius: 10px;
+    font-size: 13.5px;
+  }
+  .impact b { color: var(--ink); }
+  .impact .tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-faint);
+    border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 4px; white-space: nowrap;
+  }
+  .tested {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--accent);
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
+  }
+  .tested::before { content: "✓"; font-weight: 700; }
+
+  .mini-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+  }
+  .mini {
+    background: var(--bg-raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 18px;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+  .mini h3 { margin: 0; font-size: 15.5px; }
+  .mini p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  .mini .pnum { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--accent); }
+  .mini a { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--accent); text-decoration: none; }
+  .mini a:hover { text-decoration: underline; }
+
+  .quality {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .quality .principle .big { font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: var(--accent); }
+
+  .timeline { display: grid; gap: 16px; }
+  .job { display: grid; gap: 4px; }
+  .job-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .job-head b { font-size: 15px; }
+  .job-head span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-faint); }
+  .job p { margin: 0; font-size: 13.5px; color: var(--ink-soft); max-width: 70ch; }
+  .job .where { font-size: 13px; color: var(--ink-faint); }
+
+  .hd-node.err rect { stroke: var(--danger); }
+  .hd-edge.err { stroke: var(--danger); stroke-dasharray: 4 3; }
+  .hd-err { fill: var(--danger); }
 </style>
 </head>
 <body>
@@ -373,429 +452,187 @@
 <div class="wrap">
 
   <nav>
-    <div class="brand"><span class="dot"></span>Dyaksa — Automation Engineer</div>
+    <div class="brand"><span class="dot"></span>dyaksa / n8n automation</div>
     <div class="navlinks">
-      <a href="#approach">Approach</a>
-      <a href="#projects">Projects</a>
-      <a href="#loop">The loop</a>
-      <a href="#skills">Skills</a>
+      <a href="#workflows">Workflows</a>
+      <a href="#tested">Testing</a>
+      <a href="#stack">Stack</a>
+      <a href="#background">Background</a>
       <a href="#contact">Contact</a>
     </div>
   </nav>
 
-  <div class="hero">
-    <div class="eyebrow">n8n &amp; AI Workflow Automation Engineer · APIs · Code Nodes · Docker</div>
-    <h1><span class="who">Ida Bagus Wicitra Dyaksa.</span><br><span class="role">I build systems that don't need a human watching them.</span></h1>
-    <p class="pitch">I design and ship event-driven n8n workflows that connect REST APIs, webhooks, databases and AI services, and extend n8n with JavaScript Code Nodes and Python/Bash services wherever the built-in nodes stop. Every workflow validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human: seven importable workflows below, backed by three companion Python projects, 223 tests and a linter for the workflow JSON.</p>
-    <p class="pitch" style="font-size:14.5px;">Before automation, I ran paid-media programs at Ecomobi, where rule-based automation cut wasted ad spend by 60%, then spent two years in operations at BAIADA (Tamworth, Australia) and six months in production at Primo Foods (Sydney) &mdash; both built on repeatable processes and zero tolerance for a step that only works if someone remembers to do it. I hold a degree in Maritime Transportation Engineering from ITS Surabaya, with a background in process simulation and system dynamics modelling. Automation engineering is me doing full-time what I kept doing informally on the floor.</p>
+  <header class="hero">
+    <div class="eyebrow">n8n &amp; AI Workflow Automation Engineer</div>
+    <h1><span class="who">Ida Bagus Wicitra Dyaksa.</span><br><span class="role">I build n8n workflows that tell you when they break.</span></h1>
+    <p class="pitch">Event-driven n8n pipelines that connect REST APIs, webhooks, databases and AI services, extended with JavaScript Code Nodes and Python/Bash services wherever the built-in nodes stop. Every workflow validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human.</p>
+
+    <div class="stats">
+      <div class="stat"><span class="n">7</span><span class="l">importable n8n workflows</span></div>
+      <div class="stat"><span class="n">52</span><span class="l">end-to-end checks in a real n8n</span></div>
+      <div class="stat"><span class="n">223</span><span class="l">Python tests, stdlib only</span></div>
+      <div class="stat"><span class="n">60%</span><span class="l">wasted ad spend cut with rule-based automation</span></div>
+    </div>
+
     <div class="cta-row">
-      <a class="btn primary" href="#projects">View the 7 builds ↓</a>
+      <a class="btn primary" href="#workflows">See the workflows ↓</a>
       <a class="btn ghost" href="https://github.com/wicitradyaksa/automation-portfolio" target="_blank" rel="noopener">↗ GitHub repo</a>
       <a class="btn ghost" href="mailto:wicitradyaksa@gmail.com">✉ Email me</a>
     </div>
 
-    <svg class="hero-diagram" viewBox="0 0 640 150" role="img" aria-label="Diagram: trigger flows to process, then a decision branches to auto-approve or escalate">
+    <svg class="hero-diagram" viewBox="0 0 640 170" role="img" aria-label="Diagram: a webhook trigger flows to a validating code node, then an API call, then a decision that either continues to a notification or escalates to a human; an error trigger branch alerts Slack when anything fails">
       <defs>
-        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" class="hd-pulse"></path>
-        </marker>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" class="hd-pulse"></path></marker>
+        <marker id="arrow-err" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" class="hd-err"></path></marker>
       </defs>
-      <path class="hd-edge on" d="M110,40 H190" marker-end="url(#arrow)"></path>
-      <path class="hd-edge on" d="M290,40 H370" marker-end="url(#arrow)"></path>
-      <path class="hd-edge on" d="M470,40 C500,40 500,25 520,25" marker-end="url(#arrow)"></path>
-      <path class="hd-edge" d="M470,40 C500,40 500,110 520,110" marker-end="url(#arrow)"></path>
-
-      <g class="hd-node active">
-        <rect x="10" y="18" width="100" height="44" rx="10"></rect>
-        <text x="60" y="36" text-anchor="middle">Webhook</text>
-        <text x="60" y="50" text-anchor="middle" class="sub">trigger</text>
-      </g>
-      <g class="hd-node">
-        <rect x="190" y="18" width="100" height="44" rx="10"></rect>
-        <text x="240" y="36" text-anchor="middle">Validate</text>
-        <text x="240" y="50" text-anchor="middle" class="sub">+ dedupe</text>
-      </g>
-      <g class="hd-node">
-        <rect x="370" y="18" width="100" height="44" rx="10"></rect>
-        <text x="420" y="36" text-anchor="middle">Decision</text>
-        <text x="420" y="50" text-anchor="middle" class="sub">if / branch</text>
-      </g>
-      <g class="hd-node">
-        <rect x="520" y="3" width="110" height="44" rx="10"></rect>
-        <text x="575" y="21" text-anchor="middle">Auto-resolve</text>
-        <text x="575" y="35" text-anchor="middle" class="sub">log + notify</text>
-      </g>
-      <g class="hd-node">
-        <rect x="520" y="88" width="110" height="44" rx="10"></rect>
-        <text x="575" y="106" text-anchor="middle">Escalate</text>
-        <text x="575" y="120" text-anchor="middle" class="sub">human in loop</text>
-      </g>
+      <path class="hd-edge on" d="M100,40 H140" marker-end="url(#arrow)"></path>
+      <path class="hd-edge on" d="M240,40 H280" marker-end="url(#arrow)"></path>
+      <path class="hd-edge on" d="M380,40 H420" marker-end="url(#arrow)"></path>
+      <path class="hd-edge on" d="M520,40 C535,40 535,22 545,22" marker-end="url(#arrow)"></path>
+      <path class="hd-edge" d="M520,40 C535,40 535,92 545,92" marker-end="url(#arrow)"></path>
+      <path class="hd-edge err" d="M100,140 H140" marker-end="url(#arrow-err)"></path>
+      <g class="hd-node active"><rect x="4" y="18" width="96" height="44" rx="10"></rect><text x="52" y="36" text-anchor="middle">Webhook</text><text x="52" y="50" text-anchor="middle" class="sub">trigger</text></g>
+      <g class="hd-node"><rect x="144" y="18" width="96" height="44" rx="10"></rect><text x="192" y="36" text-anchor="middle">Code Node</text><text x="192" y="50" text-anchor="middle" class="sub">validate input</text></g>
+      <g class="hd-node"><rect x="284" y="18" width="96" height="44" rx="10"></rect><text x="332" y="36" text-anchor="middle">HTTP / API</text><text x="332" y="50" text-anchor="middle" class="sub">retry · paginate</text></g>
+      <g class="hd-node"><rect x="424" y="18" width="96" height="44" rx="10"></rect><text x="472" y="36" text-anchor="middle">IF / Switch</text><text x="472" y="50" text-anchor="middle" class="sub">check result</text></g>
+      <g class="hd-node"><rect x="548" y="2" width="88" height="40" rx="10"></rect><text x="592" y="20" text-anchor="middle">Continue</text><text x="592" y="33" text-anchor="middle" class="sub">log + notify</text></g>
+      <g class="hd-node"><rect x="548" y="72" width="88" height="40" rx="10"></rect><text x="592" y="90" text-anchor="middle">Human</text><text x="592" y="103" text-anchor="middle" class="sub">review queue</text></g>
+      <g class="hd-node err"><rect x="4" y="118" width="96" height="44" rx="10"></rect><text x="52" y="136" text-anchor="middle">Error Trigger</text><text x="52" y="150" text-anchor="middle" class="sub">any failure</text></g>
+      <g class="hd-node err"><rect x="144" y="118" width="96" height="44" rx="10"></rect><text x="192" y="136" text-anchor="middle">Slack alert</text><text x="192" y="150" text-anchor="middle" class="sub">with the error</text></g>
     </svg>
-  </div>
+  </header>
 
   <section id="approach">
-    <div class="section-head"><span class="section-num">01</span><h2>How I approach a build</h2></div>
-    <p class="section-desc">Connecting app A to app B is the easy part, and it isn't what breaks at 3am. Every build here follows the same three rules &mdash; the part that's hard to see in a demo video and is what actually makes an automation trustworthy. The companion projects add a fourth: a claim you cannot check is not evidence.</p>
+    <div class="section-head"><span class="section-num">01</span><h2>How I build a workflow</h2></div>
+    <p class="section-desc">Connecting app A to app B is the easy part, and it isn't what breaks at 3am. These four rules are hard to see in a demo video, and they're what make an automation trustworthy.</p>
     <div class="principles">
-      <div class="principle">
-        <div class="idx">rule / 01</div>
-        <h3>Exit code 0 proves nothing</h3>
-        <p>Every stage verifies its own output. <code class="mono">ffprobe</code> the render against the spec, checksum-read the archive, assert row counts after the load. A job that "succeeded" and produced a 0-byte file is a failure.</p>
-      </div>
-      <div class="principle">
-        <div class="idx">rule / 02</div>
-        <h3>Always have a failure path</h3>
-        <p>Uncertain cases route to a human instead of guessing, loops give up loudly instead of hanging forever, and an <code class="mono">errorTrigger</code> on every workflow means a break gets paged &mdash; not discovered a week later.</p>
-      </div>
-      <div class="principle">
-        <div class="idx">rule / 03</div>
-        <h3>Refusing to act is a feature</h3>
-        <p>Two of these deliberately do nothing when the evidence is thin. Automation that acts on noise &mdash; scaling budget into a "winner" with 400 impressions &mdash; destroys things faster than a human can.</p>
-      </div>
+      <div class="principle"><div class="idx">rule / 01</div><h3>Exit code 0 proves nothing</h3><p>Every stage verifies its own output: <code class="mono">ffprobe</code> the render, checksum the backup, assert row counts after the load.</p></div>
+      <div class="principle"><div class="idx">rule / 02</div><h3>Always have a failure path</h3><p>Uncertain cases route to a human, loops give up loudly instead of hanging, and an Error Trigger on every workflow means a break gets paged, not discovered next week.</p></div>
+      <div class="principle"><div class="idx">rule / 03</div><h3>Refusing to act is a feature</h3><p>When the evidence is thin, the workflow holds. Scaling budget into a "winner" with 400 impressions destroys things faster than a human can.</p></div>
+      <div class="principle"><div class="idx">rule / 04</div><h3>A claim you can't check isn't evidence</h3><p>The workflows are tested end to end inside a real n8n, and impact numbers are regenerated from data by a script, tagged as benchmark where they are.</p></div>
     </div>
   </section>
 
-  <section id="projects">
-    <div class="section-head"><span class="section-num">02</span><h2>Seven n8n workflows + the code behind them</h2></div>
-    <p class="section-desc">Projects 01&ndash;07 are working n8n workflows (JSON export in the repo), each with a written case study covering the architecture, the failure handling, and what I&rsquo;d do differently with more time. Projects 08, 09 and 10 are companion Python &mdash; 223 tests, standard library only &mdash; and exist to make the claims behind the seven workflows checkable rather than asserted.</p>
+  <section id="workflows">
+    <div class="section-head"><span class="section-num">02</span><h2>Featured workflows</h2></div>
+    <p class="section-desc">Five builds covering the work most n8n roles hire for: lead routing, document processing, API integration, data pipelines and generative AI. Each folder has an importable <code class="mono">workflow.json</code> and a case study.</p>
 
-    <div class="track-head">Operations &amp; integration</div>
+    <article class="project">
+      <div class="project-head"><h3>Lead Capture &amp; CRM Sync</h3><span class="pnum">01 / sales ops</span></div>
+      <p class="one-line">One webhook for every lead source: normalize inconsistent payloads, de-duplicate against the CRM, alert sales, auto-reply to the prospect, and answer the form with a 200 or 400, all in one execution.</p>
+      <div class="flow"><span class="step trigger">Webhook</span><span class="arrow">→</span><span class="step">Code: normalize + validate</span><span class="arrow">→</span><span class="step">Sheets lookup</span><span class="arrow">→</span><span class="step">Upsert on email</span><span class="arrow">→</span><span class="step">Slack + email</span><span class="arrow">→</span><span class="step">Respond 200/400</span></div>
+      <div class="impact"><div><b>Speed-to-lead from hours to under a minute</b> <span class="tag">design target</span></div><div>No duplicate contacts for a repeat email, and every outcome (new, returning, invalid, failed) is logged or alerted.</div></div>
+      <span class="tested">Tested: new, returning, invalid and Sheets-outage paths through the live webhook</span>
+      <div class="project-tags"><span class="chip">Webhook</span><span class="chip">Respond to Webhook</span><span class="chip">Code Node</span><span class="chip">Idempotent upsert</span><span class="chip">Error Trigger</span></div>
+      <div class="project-links"><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-1-lead-intake-crm-sync" target="_blank" rel="noopener">↗ Case study + workflow.json</a></div>
+    </article>
 
-    <div class="project">
-      <div class="project-head">
-        <h3>Lead Intake &amp; CRM Sync</h3>
-        <span class="pnum">01 / business ops</span>
-      </div>
-      <p class="one-line">A webhook catches leads from any form, validates and de-duplicates them against a CRM, and alerts sales while auto-replying to the prospect &mdash; all in a single execution, with a 200/400 response back to the form.</p>
-      <div class="flow">
-        <span class="step trigger">Webhook</span><span class="arrow">→</span>
-        <span class="step">Validate</span><span class="arrow">→</span>
-        <span class="step">Dedupe check</span><span class="arrow">→</span>
-        <span class="step">Update / create CRM row</span><span class="arrow">→</span>
-        <span class="step">Slack + email</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Webhooks</span><span class="chip">Google Sheets API</span><span class="chip">Slack</span><span class="chip">SMTP</span><span class="chip">Idempotency</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-1-lead-intake-crm-sync" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
+    <article class="project">
+      <div class="project-head"><h3>Invoice Intake &amp; Approval Engine</h3><span class="pnum">02 / finance ops</span></div>
+      <p class="one-line">Watches the accounts-payable inbox, extracts PDF text, parses the fields in a Code Node, and routes each invoice to auto-approval, manager approval or human review. A low-confidence parse is never guessed.</p>
+      <div class="flow"><span class="step trigger">IMAP</span><span class="arrow">→</span><span class="step">Has PDF?</span><span class="arrow">→</span><span class="step">Extract From File</span><span class="arrow">→</span><span class="step">Code: regex parser</span><span class="arrow">→</span><span class="step warn">Complete? · Over $1,000?</span><span class="arrow">→</span><span class="step">Ledger / approval / review</span></div>
+      <div class="impact"><div><b>5.2× faster per invoice · 7.4 h/week saved · 4.6-week payback</b> <span class="tag">benchmark</span></div><div>From the ROI case study: every number is regenerated from raw CSVs by a script, and the dataset is labelled synthetic.</div></div>
+      <span class="tested">Tested: over-threshold, under-threshold and missing-field invoices from real PDFs</span>
+      <div class="project-tags"><span class="chip">IMAP trigger</span><span class="chip">Extract From File</span><span class="chip">Confidence gating</span><span class="chip">Human-in-the-loop</span></div>
+      <div class="project-links"><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-2-invoice-processing-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-10-migration-case-study" target="_blank" rel="noopener">↗ ROI case study</a></div>
+    </article>
+
+    <article class="project">
+      <div class="project-head"><h3>API Integration Kit: OAuth2, Webhooks, Pagination</h3><span class="pnum">08 / integrations</span></div>
+      <p class="one-line">The logic an n8n node hides, rebuilt so every production failure mode is handled and tested. It's the service a workflow calls through an HTTP Request node when no built-in node fits.</p>
+      <div class="flow"><span class="step trigger">OAuth2 / HMAC / API key</span><span class="arrow">→</span><span class="step">Retry-After + jittered backoff</span><span class="arrow">→</span><span class="step warn">Signature + replay window</span><span class="arrow">→</span><span class="step">Claim-once idempotency</span><span class="arrow">→</span><span class="step">One schema</span></div>
+      <div class="impact"><div><b>OAuth2 refresh proven single-flight under 8 concurrent threads</b></div><div>Webhook idempotency proven under 20 threads, cursor-loop detection, and no POST retried without an idempotency key. 83 tests.</div></div>
+      <div class="project-tags"><span class="chip">OAuth2</span><span class="chip">HMAC-SHA256</span><span class="chip">Rate limiting</span><span class="chip">Pagination</span><span class="chip">Python</span></div>
+      <div class="project-links"><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-8-integration-kit" target="_blank" rel="noopener">↗ Case study</a><a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-8-integration-kit/integration_kit/oauth.py" target="_blank" rel="noopener">↗ oauth.py</a></div>
+    </article>
+
+    <article class="project">
+      <div class="project-head"><h3>Self-Healing VPS Ops &amp; Verified Nightly ETL</h3><span class="pnum">07 / data pipelines</span></div>
+      <p class="one-line">SSH healthcheck returning JSON, disk self-heal with re-verification, a checksum-verified backup that gates the ETL, an idempotent upsert into PostgreSQL, and SQL data-quality checks that quarantine a bad load instead of committing it.</p>
+      <div class="flow"><span class="step trigger">Schedule 02:00</span><span class="arrow">→</span><span class="step">SSH healthcheck</span><span class="arrow">→</span><span class="step">Self-heal + re-check</span><span class="arrow">→</span><span class="step warn">Backup verified?</span><span class="arrow">→</span><span class="step">ETL → Postgres</span><span class="arrow">→</span><span class="step warn">DQ gate / quarantine</span></div>
+      <div class="impact"><div><b>0 unverified backups counted as success · 0 failed-DQ loads committed</b></div><div>Stale-but-correct beats fresh-but-wrong: ops are told the dashboards are on yesterday's data.</div></div>
+      <span class="tested">Tested: happy path, disk pressure, 200-byte backup, zero-row load, non-JSON healthcheck</span>
+      <div class="project-tags"><span class="chip">SSH</span><span class="chip">PostgreSQL</span><span class="chip">Bash</span><span class="chip">Python ETL</span><span class="chip">Data quality</span></div>
+      <div class="project-links"><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline/scripts" target="_blank" rel="noopener">↗ Scripts</a></div>
+    </article>
+
+    <article class="project">
+      <div class="project-head"><h3>Generative AI Creative Factory</h3><span class="pnum">05 / generative AI</span></div>
+      <p class="one-line">A spreadsheet row becomes placement-ready ad creatives. The ComfyUI graph is built in a Code Node, queued on the GPU, polled with a hard give-up, post-processed in Python, and briefs with a master video are handed to the FFmpeg render farm.</p>
+      <div class="flow"><span class="step trigger">Schedule 06:00</span><span class="arrow">→</span><span class="step">Code: build ComfyUI graph</span><span class="arrow">→</span><span class="step">POST /prompt</span><span class="arrow">→</span><span class="step warn">Wait + poll, give up at 5 min</span><span class="arrow">→</span><span class="step">Python: 4 placements</span><span class="arrow">→</span><span class="step">Hand off to render farm</span></div>
+      <div class="impact"><div><b>Brief → 4 placements per image, with no human in the loop</b> <span class="tag">design target</span></div><div>A wedged GPU queue alerts after 5 minutes instead of hanging a worker, and the seed is saved so a winning look can be regenerated.</div></div>
+      <span class="tested">Tested: generation, polling, Python post-processing, give-up, empty queue, and the hand-off into workflow 04</span>
+      <div class="project-tags"><span class="chip">ComfyUI / SDXL</span><span class="chip">Async polling</span><span class="chip">Wait node</span><span class="chip">Python / Pillow</span><span class="chip">Workflow-to-workflow</span></div>
+      <div class="project-links"><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-5-generative-creative-factory" target="_blank" rel="noopener">↗ Case study + workflow.json</a></div>
+    </article>
+
+    <div class="track-head">More workflows &amp; companion projects</div>
+    <div class="mini-grid">
+      <div class="mini"><span class="pnum">03 / ops</span><h3>Uptime Monitor &amp; Auto-Remediation</h3><p>Health checks every 5 minutes, <code class="mono">docker restart</code>, a 30-second re-check, then a self-heal notice or an on-call page.</p><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-3-uptime-monitor-auto-remediation" target="_blank" rel="noopener">↗ Case study</a></div>
+      <div class="mini"><span class="pnum">04 / media</span><h3>Media Render Farm (FFmpeg)</h3><p>One master video becomes every format × hook, rendered serially, <code class="mono">ffprobe</code>-verified and uploaded, with a 202 ack up front.</p><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-4-media-render-farm" target="_blank" rel="noopener">↗ Case study</a></div>
+      <div class="mini"><span class="pnum">06 / growth</span><h3>DCO Budget Engine</h3><p>Paginated ad and affiliate pulls, per-variant ROAS/CPA, and a Bonferroni-corrected test before any budget moves. Losers queue their own replacement.</p><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-6-dco-engine" target="_blank" rel="noopener">↗ Case study</a></div>
+      <div class="mini"><span class="pnum">09 / observability</span><h3>Observability Layer for n8n</h3><p>Correlation IDs across workflows, a Prometheus exporter, and 7 alert rules, including the one that catches a workflow that silently stopped.</p><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-9-observability-layer" target="_blank" rel="noopener">↗ Case study</a></div>
+      <div class="mini"><span class="pnum">10 / business impact</span><h3>ROI Case Study</h3><p>Workflow 02's before/after, where every figure is regenerated from raw data and a test fails if the prose drifts from the numbers.</p><a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-10-migration-case-study" target="_blank" rel="noopener">↗ Case study</a></div>
     </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Invoice Intake &amp; Validation Pipeline</h3>
-        <span class="pnum">02 / finance ops</span>
-      </div>
-      <p class="one-line">Watches an AP inbox, extracts and parses invoice PDFs, and routes each one to auto-approval, manager approval, or manual review based on completeness and amount.</p>
-      <div class="flow">
-        <span class="step trigger">IMAP watch</span><span class="arrow">→</span>
-        <span class="step">Extract PDF text</span><span class="arrow">→</span>
-        <span class="step">Parse fields</span><span class="arrow">→</span>
-        <span class="step warn">Amount &gt; $1,000?</span><span class="arrow">→</span>
-        <span class="step">Approve / escalate</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Document parsing</span><span class="chip">Conditional logic</span><span class="chip">Approval workflow</span><span class="chip">Google Sheets</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-2-invoice-processing-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Uptime Monitor &amp; Auto-Remediation</h3>
-        <span class="pnum">03 / devops / sre</span>
-      </div>
-      <p class="one-line">Polls service health endpoints every 5 minutes, tries a Docker container restart before paging a human, and logs every check for later MTTR reporting.</p>
-      <div class="flow">
-        <span class="step trigger">Schedule (5 min)</span><span class="arrow">→</span>
-        <span class="step">Health check</span><span class="arrow">→</span>
-        <span class="step warn">Unhealthy?</span><span class="arrow">→</span>
-        <span class="step">docker restart</span><span class="arrow">→</span>
-        <span class="step">Re-check → escalate or log self-heal</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Docker</span><span class="chip">Scheduled jobs</span><span class="chip">Self-healing</span><span class="chip">Escalation logic</span><span class="chip">Observability</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-3-uptime-monitor-auto-remediation" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-      </div>
-    </div>
-
-    <div class="track-head">Media &amp; content automation</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Media Render Farm <span style="color:var(--ink-faint);font-weight:400;">(FFmpeg)</span></h3>
-        <span class="pnum">04 / media ops</span>
-      </div>
-      <p class="one-line">One master video in, every ad format out. Expands a request into a variant matrix (aspect ratio &times; hook), transcodes serially so the box doesn't thrash, then <code class="mono">ffprobe</code>s every output &mdash; a render that finishes but writes a 0-byte file is treated as a failure, not a success.</p>
-      <div class="flow">
-        <span class="step trigger">Webhook</span><span class="arrow">→</span>
-        <span class="step">Build variant matrix</span><span class="arrow">→</span>
-        <span class="step">FFmpeg (one at a time)</span><span class="arrow">→</span>
-        <span class="step warn">ffprobe vs spec</span><span class="arrow">→</span>
-        <span class="step">Manifest / reject</span>
-      </div>
-      <p class="evidence">Verifies duration, byte size, and actual vs requested dimensions. Renders to <code>.partial</code> then atomically moves &mdash; a crash leaves nothing rather than a half-written file that looks finished.</p>
-      <div class="project-tags">
-        <span class="chip strong">FFmpeg</span><span class="chip strong">Bash</span><span class="chip">Video processing</span><span class="chip">Docker</span><span class="chip">Loudness normalisation</span><span class="chip">Batch queueing</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-4-media-render-farm" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-4-media-render-farm/scripts/render_variant.sh" target="_blank" rel="noopener">↗ render_variant.sh</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Generative Creative Factory <span style="color:var(--ink-faint);font-weight:400;">(ComfyUI / SDXL)</span></h3>
-        <span class="pnum">05 / generative ai</span>
-      </div>
-      <p class="one-line">Marketing fills in a spreadsheet row; a GPU box returns a full set of placement-ready creatives. The ComfyUI API-format node graph is built <em>in code</em> from the brief, so nobody touches the node editor &mdash; and the polling loop gives up after ~5 minutes instead of hanging forever on a wedged queue.</p>
-      <div class="flow">
-        <span class="step trigger">Schedule 06:00</span><span class="arrow">→</span>
-        <span class="step">Build ComfyUI graph</span><span class="arrow">→</span>
-        <span class="step">Queue on GPU</span><span class="arrow">→</span>
-        <span class="step warn">Poll ×15 max</span><span class="arrow">→</span>
-        <span class="step">Python post-process</span>
-      </div>
-      <p class="evidence">Post-processing re-saves as JPEG specifically to strip the PNG text chunks where ComfyUI embeds your full prompt graph &mdash; that should not ship to an ad network.</p>
-      <div class="project-tags">
-        <span class="chip strong">Python</span><span class="chip strong">ComfyUI / SDXL</span><span class="chip">Pillow</span><span class="chip">Async job polling</span><span class="chip">Generative AI workflows</span><span class="chip">Content automation</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-5-generative-creative-factory" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-5-generative-creative-factory/scripts/postprocess_creative.py" target="_blank" rel="noopener">↗ postprocess_creative.py</a>
-      </div>
-    </div>
-
-    <div class="track-head">Growth &amp; performance</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>DCO Engine <span style="color:var(--ink-faint);font-weight:400;">&mdash; creative performance loop</span></h3>
-        <span class="pnum">06 / media buying</span>
-      </div>
-      <p class="one-line">Joins ad-platform spend to affiliate revenue on <code class="mono">sub_id</code>, rolls up per-variant CTR/CVR/CPA/ROAS/EPC, then <strong>refuses to decide anything</strong> until a variant clears both a volume floor and a significance test. Winners get a capped +20% budget step; losers get paused and automatically queue their own replacement brief.</p>
-      <div class="flow">
-        <span class="step trigger">Every 6h</span><span class="arrow">→</span>
-        <span class="step">Join spend + revenue</span><span class="arrow">→</span>
-        <span class="step warn">Volume floor</span><span class="arrow">→</span>
-        <span class="step warn">z-test + Bonferroni</span><span class="arrow">→</span>
-        <span class="step">Scale / pause / hold</span>
-      </div>
-      <p class="evidence">Testing six variants at &alpha;=0.05 gives a ~26% chance of a false winner. The correction holds that at 5% &mdash; so a +40% "lift" at p=0.019 gets held for another cycle rather than scaled. A hard ROAS floor overrides the statistics entirely.</p>
-      <div class="project-tags">
-        <span class="chip strong">DCO</span><span class="chip strong">A/B testing</span><span class="chip">Media buying</span><span class="chip">Performance marketing</span><span class="chip">Affiliate APIs</span><span class="chip">Programmatic</span><span class="chip">Python statistics</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-6-dco-engine" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-6-dco-engine/scripts/ab_significance.py" target="_blank" rel="noopener">↗ ab_significance.py</a>
-      </div>
-    </div>
-
-    <div class="track-head">Infrastructure &amp; data</div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>VPS Ops &amp; Nightly Data Pipeline</h3>
-        <span class="pnum">07 / infra / data</span>
-      </div>
-      <p class="one-line">The unglamorous one that keeps everything else alive. SSHes into an Ubuntu VPS, runs a Bash healthcheck that returns JSON, self-heals disk pressure <em>and re-checks that it worked</em>, verifies the backup actually contains bytes, then runs an idempotent Python ETL into Postgres and asserts data quality afterwards.</p>
-      <div class="flow">
-        <span class="step trigger">Nightly 02:00</span><span class="arrow">→</span>
-        <span class="step">Healthcheck → self-heal</span><span class="arrow">→</span>
-        <span class="step warn">Verify backup</span><span class="arrow">→</span>
-        <span class="step">Python ETL → Postgres</span><span class="arrow">→</span>
-        <span class="step warn">DQ gate / quarantine</span>
-      </div>
-      <p class="evidence">A 60% row-count drop versus the trailing week looks exactly like a quiet day &mdash; so it's caught and the load is quarantined. Stale-but-correct dashboards get a question; fresh-but-wrong ones get a decision made on them.</p>
-      <div class="project-tags">
-        <span class="chip strong">Linux / Ubuntu VPS</span><span class="chip strong">Bash</span><span class="chip strong">Python</span><span class="chip">PostgreSQL</span><span class="chip">Data pipelines</span><span class="chip">Idempotent ETL</span><span class="chip">SSH</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline" target="_blank" rel="noopener">↗ Case study + workflow.json</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline/scripts" target="_blank" rel="noopener">↗ 3 scripts</a>
-      </div>
-    </div>
-
-    <div class="track-head">Companion projects &mdash; the code behind the nodes</div>
-    <p class="section-desc">The seven above <em>assert</em> error handling, observability and business impact. These three make each assertion inspectable. Standard library only, 223 tests, nothing to install &mdash; <code>py run_tests.py</code>.</p>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Integration Kit</h3>
-        <span class="pnum">08 / production python</span>
-      </div>
-      <p class="one-line">Three third-party APIs with three genuinely different auth models &mdash; OAuth2 refresh, HMAC-signed webhooks, and an API key with cursor pagination &mdash; normalised into one internal schema. The concurrent-refresh race is handled and proved with eight real threads.</p>
-      <div class="flow">
-        <span class="step trigger">OAuth2 / HMAC / API key</span><span class="arrow">&rarr;</span>
-        <span class="step">Retry + Retry-After</span><span class="arrow">&rarr;</span>
-        <span class="step warn">Verify + replay window</span><span class="arrow">&rarr;</span>
-        <span class="step">Idempotency claim</span><span class="arrow">&rarr;</span>
-        <span class="step">One Contact schema</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Production Python</span><span class="chip">OAuth2</span><span class="chip">Webhook security</span><span class="chip">Rate limiting</span><span class="chip">Concurrency</span><span class="chip">83 tests</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-8-integration-kit" target="_blank" rel="noopener">&#8599; Case study</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-8-integration-kit/integration_kit/oauth.py" target="_blank" rel="noopener">&#8599; oauth.py &mdash; the race</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-8-integration-kit/integration_kit/webhooks.py" target="_blank" rel="noopener">&#8599; webhooks.py</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Observability Layer</h3>
-        <span class="pnum">09 / monitoring / SRE</span>
-      </div>
-      <p class="one-line">Correlation IDs that survive a workflow boundary, a Prometheus metrics endpoint, seven alert rules and an on-call runbook &mdash; wrapped around the seven workflows above. Includes the alert that rate-based monitoring structurally cannot produce: a scheduled workflow that stopped running entirely.</p>
-      <div class="flow">
-        <span class="step trigger">n8n execution event</span><span class="arrow">&rarr;</span>
-        <span class="step">Correlation ID</span><span class="arrow">&rarr;</span>
-        <span class="step">Collector</span><span class="arrow">&rarr;</span>
-        <span class="step">/metrics</span><span class="arrow">&rarr;</span>
-        <span class="step warn">7 alerts &rarr; runbook</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Prometheus</span><span class="chip">Grafana</span><span class="chip">Structured logging</span><span class="chip">Alerting</span><span class="chip">Docker</span><span class="chip">105 tests</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-9-observability-layer" target="_blank" rel="noopener">&#8599; Case study</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/RUNBOOK.md" target="_blank" rel="noopener">&#8599; The on-call runbook</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-9-observability-layer/obs/alerts.py" target="_blank" rel="noopener">&#8599; alerts.py</a>
-      </div>
-    </div>
-
-    <div class="project">
-      <div class="project-head">
-        <h3>Migration Case Study</h3>
-        <span class="pnum">10 / business impact</span>
-      </div>
-      <p class="one-line">A before/after write-up of Project 02's process where every number is regenerated from raw data by a script rather than typed in &mdash; including the accounting decisions that make the figure <em>smaller</em>. A test fails if the prose drifts from the data, or if an unmarked percentage appears that the analysis does not produce.</p>
-      <div class="flow">
-        <span class="step trigger">Time the steps</span><span class="arrow">&rarr;</span>
-        <span class="step">Raw CSV per run</span><span class="arrow">&rarr;</span>
-        <span class="step">Wilson intervals</span><span class="arrow">&rarr;</span>
-        <span class="step">Per-item normalise</span><span class="arrow">&rarr;</span>
-        <span class="step warn">Payback + caveats</span>
-      </div>
-      <div class="project-tags">
-        <span class="chip">Process analysis</span><span class="chip">Measurement</span><span class="chip">Statistics</span><span class="chip">Business impact</span><span class="chip">35 tests</span>
-      </div>
-      <div class="project-links">
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-10-migration-case-study" target="_blank" rel="noopener">&#8599; The case study</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-10-migration-case-study/scripts/analyse_impact.py" target="_blank" rel="noopener">&#8599; analyse_impact.py</a>
-        <a href="https://github.com/wicitradyaksa/automation-portfolio/blob/main/project-10-migration-case-study/data/README.md" target="_blank" rel="noopener">&#8599; How the data was collected</a>
-      </div>
-    </div>
-
   </section>
 
   <section id="loop">
     <div class="section-head"><span class="section-num">03</span><h2>They connect to each other</h2></div>
-    <p class="section-desc">Projects 04, 05 and 06 aren't three separate demos &mdash; they're one self-refilling loop. A creative that gets paused writes a new brief row into the same sheet the generation workflow reads at 06:00 the next morning.</p>
-
-    <svg class="loop-diagram" viewBox="0 0 660 210" role="img" aria-label="Diagram: a creative brief flows into the generative factory, then the render farm, then the DCO engine, which feeds paused creatives back into the brief queue as a feedback loop">
-      <defs>
-        <marker id="loop-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" class="ld-arrow"></path>
-        </marker>
-      </defs>
-
+    <p class="section-desc">Workflows 04, 05 and 06 are one self-refilling loop. A paused creative writes a new brief into the sheet the generator reads at 06:00 the next morning.</p>
+    <svg class="loop-diagram" viewBox="0 0 660 190" role="img" aria-label="Diagram: a creative brief flows into the generative factory, then the render farm, then the DCO engine, which feeds paused creatives back into the brief queue">
+      <defs><marker id="loop-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" class="ld-arrow"></path></marker></defs>
       <path class="ld-edge on" d="M116,42 H166" marker-end="url(#loop-arrow)"></path>
       <path class="ld-edge on" d="M296,42 H346" marker-end="url(#loop-arrow)"></path>
       <path class="ld-edge on" d="M476,42 H526" marker-end="url(#loop-arrow)"></path>
-
-      <path class="ld-edge feedback" d="M580,68 V150 H60 V68" marker-end="url(#loop-arrow)"></path>
-      <text class="ld-label" x="320" y="167" text-anchor="middle">paused creative → new brief queued automatically</text>
-
-      <g class="ld-node">
-        <rect x="16" y="20" width="100" height="44" rx="10"></rect>
-        <text x="66" y="38" text-anchor="middle">Brief</text>
-        <text x="66" y="52" text-anchor="middle" class="sub">sheet row</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="166" y="20" width="130" height="44" rx="10"></rect>
-        <text x="231" y="38" text-anchor="middle">05 · Generate</text>
-        <text x="231" y="52" text-anchor="middle" class="sub">ComfyUI / SDXL</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="346" y="20" width="130" height="44" rx="10"></rect>
-        <text x="411" y="38" text-anchor="middle">04 · Render</text>
-        <text x="411" y="52" text-anchor="middle" class="sub">FFmpeg variants</text>
-      </g>
-      <g class="ld-node gen">
-        <rect x="526" y="20" width="118" height="44" rx="10"></rect>
-        <text x="585" y="38" text-anchor="middle">06 · Test</text>
-        <text x="585" y="52" text-anchor="middle" class="sub">scale / pause</text>
-      </g>
+      <path class="ld-edge feedback" d="M590,68 V150 H66 V68" marker-end="url(#loop-arrow)"></path>
+      <text class="ld-label" x="328" y="167" text-anchor="middle">paused creative → replacement brief queued automatically</text>
+      <g class="ld-node"><rect x="16" y="20" width="100" height="44" rx="10"></rect><text x="66" y="38" text-anchor="middle">Brief</text><text x="66" y="52" text-anchor="middle" class="sub">sheet row</text></g>
+      <g class="ld-node gen"><rect x="166" y="20" width="130" height="44" rx="10"></rect><text x="231" y="38" text-anchor="middle">05 · Generate</text><text x="231" y="52" text-anchor="middle" class="sub">ComfyUI / SDXL</text></g>
+      <g class="ld-node gen"><rect x="346" y="20" width="130" height="44" rx="10"></rect><text x="411" y="38" text-anchor="middle">04 · Render</text><text x="411" y="52" text-anchor="middle" class="sub">FFmpeg variants</text></g>
+      <g class="ld-node gen"><rect x="526" y="20" width="128" height="44" rx="10"></rect><text x="590" y="38" text-anchor="middle">06 · Test</text><text x="590" y="52" text-anchor="middle" class="sub">scale / pause / hold</text></g>
     </svg>
-
-    <p class="section-desc" style="margin:18px auto 0;text-align:center;">Two workflows with a clean contract between them beat one that does both jobs badly &mdash; and each can be tested, restarted or replaced on its own.</p>
   </section>
 
-  <section id="skills">
-    <div class="section-head"><span class="section-num">04</span><h2>Toolbox</h2></div>
-    <p class="section-desc">Highlighted items are the ones with code in the repo you can read, run, and break.</p>
+  <section id="tested">
+    <div class="section-head"><span class="section-num">04</span><h2>How it's tested</h2></div>
+    <p class="section-desc">"Importable" isn't the same as "works". Every workflow goes through three gates, and each gate has already caught real bugs.</p>
+    <div class="quality">
+      <div class="principle"><div class="idx">gate / 01 · schema</div><span class="big">7 / 7</span><h3>Checked against n8n's own node schemas</h3><p>Every node's type, version, parameter names and enum values are validated against the schemas exported from n8n 2.x. It caught nodes whose parameters n8n would have silently ignored.</p></div>
+      <div class="principle"><div class="idx">gate / 02 · lint</div><span class="big">0</span><h3>Data-flow lint findings</h3><p>A linter for workflow exports flags <code class="mono">$json</code> reads after nodes that replace the item, broken <code class="mono">$('Node')</code> references and dangling connections.</p></div>
+      <div class="principle"><div class="idx">gate / 03 · e2e</div><span class="big">52</span><h3>End-to-end checks in a real n8n</h3><p>Each workflow runs its scenarios inside n8n, with every external service mocked and every resolved parameter recorded. It found a dropped item in a batch, a report posting three times, and a hand-off that could never fire.</p></div>
+    </div>
+  </section>
+
+  <section id="stack">
+    <div class="section-head"><span class="section-num">05</span><h2>Tech stack</h2></div>
     <div class="skill-groups">
+      <div class="skill-group"><h3>n8n</h3><div class="chip-row"><span class="chip strong">n8n (self-hosted, Docker)</span><span class="chip">Webhooks: sync &amp; async</span><span class="chip">Code Nodes (JS)</span><span class="chip">IF / Switch / Merge</span><span class="chip">Split In Batches loops</span><span class="chip">Wait-based polling</span><span class="chip strong">Error Trigger workflows</span><span class="chip">Workflow-to-workflow calls</span></div></div>
+      <div class="skill-group"><h3>APIs &amp; integration</h3><div class="chip-row"><span class="chip strong">REST APIs</span><span class="chip strong">OAuth2</span><span class="chip">HMAC webhooks</span><span class="chip">Pagination</span><span class="chip">Rate limiting &amp; backoff</span><span class="chip">Idempotency</span><span class="chip">Slack · Google Sheets · IMAP/SMTP</span></div></div>
+      <div class="skill-group"><h3>Code, data &amp; AI</h3><div class="chip-row"><span class="chip strong">JavaScript</span><span class="chip strong">Python</span><span class="chip">Bash</span><span class="chip strong">PostgreSQL / SQL</span><span class="chip">ComfyUI / SDXL</span><span class="chip">FFmpeg</span><span class="chip">OpenAI / LLM nodes (in progress)</span></div></div>
+      <div class="skill-group"><h3>Ops &amp; quality</h3><div class="chip-row"><span class="chip">Docker Compose</span><span class="chip">Linux VPS · SSH</span><span class="chip">Prometheus / Grafana</span><span class="chip strong">End-to-end workflow tests</span><span class="chip">Git / GitHub</span></div></div>
+    </div>
+  </section>
 
-      <div class="skill-group">
-        <h3>Core automation &amp; engineering</h3>
-        <div class="chip-row">
-          <span class="chip strong">n8n</span><span class="chip">Workflow automation</span><span class="chip">Process automation</span>
-          <span class="chip">API integration</span><span class="chip">System integration</span><span class="chip">Scripting</span>
-          <span class="chip">Data pipelines</span><span class="chip">Task automation</span>
-          <span class="chip">Error handling &amp; alerting</span><span class="chip">Human-in-the-loop design</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Languages &amp; stack</h3>
-        <div class="chip-row">
-          <span class="chip strong">Python</span><span class="chip strong">Bash / shell</span><span class="chip strong">Docker &amp; Compose</span>
-          <span class="chip strong">Linux / Ubuntu VPS</span><span class="chip">JavaScript (Code nodes)</span>
-          <span class="chip">REST APIs &amp; webhooks</span><span class="chip">PostgreSQL / SQL</span><span class="chip">Git &amp; GitHub</span>
-          <span class="chip">SSH</span><span class="chip">Google Sheets API</span><span class="chip">Slack API</span><span class="chip">IMAP / SMTP</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Media &amp; content automation</h3>
-        <div class="chip-row">
-          <span class="chip strong">FFmpeg</span><span class="chip">Video processing</span><span class="chip">Media automation</span>
-          <span class="chip">Automated content workflows</span><span class="chip strong">ComfyUI / Stable Diffusion</span>
-          <span class="chip">Generative AI workflows</span><span class="chip">Pillow / image processing</span>
-          <span class="chip">Dynamic Creative Optimization</span>
-        </div>
-      </div>
-
-      <div class="skill-group">
-        <h3>Traffic buying &amp; performance</h3>
-        <div class="chip-row">
-          <span class="chip">Media buying</span><span class="chip">Performance marketing</span><span class="chip">Programmatic advertising</span>
-          <span class="chip">Affiliate marketing</span><span class="chip">Traffic acquisition</span>
-          <span class="chip strong">A/B testing &amp; significance</span><span class="chip">Campaign optimization</span>
-          <span class="chip">ROAS / CPA / EPC modelling</span>
-        </div>
-      </div>
-
+  <section id="background">
+    <div class="section-head"><span class="section-num">06</span><h2>Background</h2></div>
+    <p class="section-desc">Automation is what I kept doing informally in every earlier role: find the step that's the bottleneck, remove it, and make sure you'll know if it comes back.</p>
+    <div class="timeline">
+      <div class="job"><div class="job-head"><b>Operations Staff · BAIADA</b><span>2023 – 2025</span></div><div class="where">Tamworth, Australia</div><p>Kept a 24.5+ t/day production and logistics operation on schedule under strict tolerances, and found and fixed recurring workflow bottlenecks.</p></div>
+      <div class="job"><div class="job-head"><b>Manufacturing Operator · Primo Foods</b><span>2022 – 2023</span></div><div class="where">Sydney, Australia</div><p>Repeatable HACCP-compliant, high-volume processes with batch quality inspection.</p></div>
+      <div class="job"><div class="job-head"><b>Digital Marketing Contractor · Ecomobi</b><span>2018 – 2020</span></div><div class="where">Denpasar, Indonesia</div><p>$4K/month ad spend at 180% average ROI. <b>Cut wasted spend by 60%</b> with automated rule-based placement blacklisting and micro-bidding, the playbook later rebuilt as the DCO engine.</p></div>
+      <div class="job"><div class="job-head"><b>B.Eng, Maritime Transportation Engineering · ITS Surabaya</b><span>2012 – 2016</span></div><p>Maritime logistics, system dynamics and process simulation. GPA 3.47 / 4.00.</p></div>
     </div>
   </section>
 
   <footer id="contact">
     <h2 style="font-size:18px;margin:0;">Let's talk</h2>
-    <p class="section-desc" style="margin:0;">Open to automation engineer, workflow engineer, media-automation and growth-engineering roles. Happy to walk through any of these builds live, or take on a small automation challenge.</p>
+    <p class="section-desc" style="margin:0;">Open to n8n, workflow automation and integration engineering roles, remote or APAC-based. Send me a process that keeps breaking and I'll sketch the workflow: triggers, nodes, failure paths, and the hours it should return.</p>
     <div class="contact-row">
       <a href="mailto:wicitradyaksa@gmail.com">✉ wicitradyaksa@gmail.com</a>
       <a href="https://www.linkedin.com/in/ida-bagus-wicitra-dyaksa-063458129/" target="_blank" rel="noopener">↗ LinkedIn</a>
-      <a href="https://github.com/wicitradyaksa" target="_blank" rel="noopener">↗ GitHub</a>
+      <a href="https://github.com/wicitradyaksa/automation-portfolio" target="_blank" rel="noopener">↗ GitHub</a>
     </div>
-    <p class="fine">Push this repo to github.com/wicitradyaksa/automation-portfolio (or update the links above) so the buttons on this page resolve correctly.</p>
+    <p class="fine">Built with Claude's help as a working starting point. The architecture, failure handling and tests are real, and every case study says which claims are measured and which are targets.</p>
   </footer>
 
 </div>

@@ -155,9 +155,11 @@
         -80
       ],
       "parameters": {
-        "command": "=docker restart {{ $('Set Target Services').item.json.container }}"
+        "command": "=docker restart {{ $('Set Target Services').item.json.container }} 2>&1 || echo \"restart failed: {{ $('Set Target Services').item.json.container }}\"",
+        "executeOnce": false
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "notes": "Runs once per service (Execute Once is off: the node's default is to run a single time for\nthe whole batch). The command always exits 0; the re-check below decides whether it worked."
     },
     {
       "id": "5e8711d7-bd87-4c62-bdbd-0ad7d15a9852",

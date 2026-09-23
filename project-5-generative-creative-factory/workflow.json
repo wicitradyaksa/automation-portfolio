@@ -275,7 +275,8 @@
         -180
       ],
       "parameters": {
-        "command": "=python3 /data/scripts/postprocess_creative.py --brief '{{$json.briefId}}' --campaign '{{$json.campaign}}' --images '{{ JSON.stringify($json.images).replaceAll(\"'\", \"\") }}' --out-dir /data/creatives"
+        "command": "=python3 /data/scripts/postprocess_creative.py --brief '{{$json.briefId}}' --campaign '{{$json.campaign}}' --images '{{ JSON.stringify($json.images).replaceAll(\"'\", \"\") }}' --out-dir /data/creatives",
+        "executeOnce": false
       },
       "notes": "Python: downloads each generation, strips EXIF, applies the brand safe-area\noverlay, and exports every ad placement size (1:1, 4:5, 9:16, 1.91:1)."
     },
@@ -289,7 +290,7 @@
         -180
       ],
       "parameters": {
-        "jsCode": "const ctx = $('Check Completion').first().json;\nlet res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`postprocess_creative.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\nreturn [{ json: { ...ctx, ...res, processedAt: new Date().toISOString() } }];"
+        "jsCode": "const ctx = $('Check Completion').first().json;\nlet res;\ntry { res = JSON.parse($input.first().json.stdout); }\ncatch (e) { throw new Error(`postprocess_creative.py did not return JSON: ${$input.first().json.stdout?.slice(0,200)}`); }\n\n// The script owns the output fields; the brief owns its own metadata, so it wins on overlap.\nreturn [{ json: { ...ctx, ...res,\n  briefId: ctx.briefId, campaign: ctx.campaign,\n  videoSourcePath: ctx.videoSourcePath, hooks: ctx.hooks,\n  processedAt: new Date().toISOString() } }];"
       }
     },
     {

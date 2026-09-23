@@ -49,7 +49,7 @@ graph TD
     K --> O[Sheets: Log Decision]
     M --> O
     N --> O
-    O --> P[Slack: Post Buying Report]
+    I --> P[Slack: Post Buying Report<br/>once, after the decisions]
     X[Error Trigger] --> Y[Slack: Alert Engineering]
 ```
 
@@ -74,6 +74,7 @@ graph TD
 * **One test per cycle:** `Run Significance Test` is set to *Execute Once*, so all variants go to the script together instead of one run per item.
 * **Never scale blind:** If a variant's current budget can't be read, `Parse Test Result` downgrades `scale` to `hold`, because `0 × 1.2` would set the ad set's budget to zero.
 * **Capped mutations:** Budget steps are limited to `DCO_SCALE_STEP` (default ×1.2), because doubling a winner resets the platform's learning phase. The mutating calls use Retry On Fail ×3.
+* **One report per cycle:** `Post Buying Report` hangs off `Parse Test Result`, not `Log Decision`. Log Decision runs once per decision branch, so a report attached there would post up to three times. The e2e test caught exactly that.
 * **Self-refilling creative loop:** A paused variant appends a brief (`requestedBy: dco_engine`, plus the reason) to the sheet the [Generative Creative Factory](../project-5-generative-creative-factory) reads at 06:00.
 * **Credentials from the environment:** API tokens are read via `$env`, never stored in node parameters that appear in execution logs.
 

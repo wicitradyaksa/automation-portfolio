@@ -29,3 +29,9 @@ creatives/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Personal CV (contains contact details) - send it, do not commit it
+cv/
+
+# e2e scratch output (workflow copies, renders, logs, exported node schemas)
+tests/e2e/.work/

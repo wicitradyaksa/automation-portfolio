@@ -88,10 +88,10 @@
         -80
       ],
       "parameters": {
-        "command": "=bash /data/scripts/render_variant.sh --src '{{$json.sourcePath}}' --out '{{$json.outPath}}' --w {{$json.width}} --h {{$json.height}} --crf {{$json.crf}} --maxrate {{$json.maxrate}} --hook '{{$json.hook}}'"
+        "command": "=bash /data/scripts/render_variant.sh --src '{{$json.sourcePath}}' --out '{{$json.outPath}}' --w {{$json.width}} --h {{$json.height}} --crf {{$json.crf}} --maxrate {{$json.maxrate}} --hook '{{$json.hook}}'",
+        "executeOnce": false
       },
       "notes": "Calls scripts/render_variant.sh \u2014 scale+pad to the target ratio, burn the hook\ntext, normalise loudness to -14 LUFS, faststart for web.",
-      "executeOnce": false,
       "onError": "continueRegularOutput"
     },
     {
@@ -104,7 +104,8 @@
         -80
       ],
       "parameters": {
-        "command": "=ffprobe -v quiet -print_format json -show_format -show_streams '{{$('Render One At A Time').item.json.outPath}}'"
+        "command": "=ffprobe -v quiet -print_format json -show_format -show_streams '{{$('Render One At A Time').item.json.outPath}}'",
+        "executeOnce": false
       },
       "onError": "continueRegularOutput"
     },
@@ -162,7 +163,8 @@
         -180
       ],
       "parameters": {
-        "command": "=ffmpeg -y -ss 00:00:01 -i '{{$json.outPath}}' -frames:v 1 -vf scale={{$json.width}}:{{$json.height}} '{{$json.thumbPath}}'"
+        "command": "=ffmpeg -y -ss 00:00:01 -i '{{$json.outPath}}' -frames:v 1 -vf scale={{$json.width}}:{{$json.height}} '{{$json.thumbPath}}'",
+        "executeOnce": false
       }
     },
     {

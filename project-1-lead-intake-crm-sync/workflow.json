@@ -254,7 +254,7 @@
           "value": "#sales-alerts",
           "mode": "name"
         },
-        "text": "=:rotating_light: New lead: *{{$('Normalize & Validate').item.json.firstName}} {{$('Normalize & Validate').item.json.lastName}}* ({{$('Normalize & Validate').item.json.company}}) via {{$('Normalize & Validate').item.json.source}}\nEmail: {{$('Normalize & Validate').item.json.email}}",
+        "text": "=:rotating_light: {{ $('Check For Duplicate').item.json.email ? 'Returning lead (touch #' + (Number($('Check For Duplicate').item.json.touchCount || 0) + 1) + ')' : 'New lead' }}: *{{ [$('Normalize & Validate').item.json.firstName, $('Normalize & Validate').item.json.lastName].filter(Boolean).join(' ') || 'Unknown name' }}*{{ $('Normalize & Validate').item.json.company ? ' (' + $('Normalize & Validate').item.json.company + ')' : '' }} via {{ $('Normalize & Validate').item.json.source }}\nEmail: {{ $('Normalize & Validate').item.json.email }}",
         "otherOptions": {}
       },
       "credentials": {

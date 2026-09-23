@@ -9,6 +9,8 @@ Catches the classes of bug that survive an import but break at run time:
   * node versions whose parameter shape this repo does not use
   * syntax errors in Code-node JavaScript (needs `node` on PATH; skipped otherwise)
   * workflows with no Error Trigger
+  * Execute Command nodes that leave `executeOnce` at its default (true), which runs the
+    command a single time for the whole batch and silently drops every item after the first
 
 Usage:  py scripts/lint_workflows.py        (exit code 1 on any finding)
 """
@@ -74,6 +76,8 @@ def lint(path):
 
     for n in w["nodes"]:
         t = kind[n["name"]]
+        if t == "executeCommand" and "executeOnce" not in n["parameters"]:
+            problems.append(f"{n['name']!r}: set executeOnce explicitly (default true runs once per batch)")
         exp = EXPECTED_VERSIONS.get(t)
         if exp and n["typeVersion"] not in exp:
             problems.append(f"{n['name']!r}: {t} v{n['typeVersion']} (expected {sorted(exp)})")

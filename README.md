@@ -2,12 +2,13 @@
 
 [![n8n](https://img.shields.io/badge/n8n-7%20importable%20workflows-FF6D5A?logo=n8n)](#-the-n8n-workflows)
 [![Lint](https://img.shields.io/badge/workflow%20lint-passing-brightgreen)](./scripts/lint_workflows.py)
+[![E2E](https://img.shields.io/badge/e2e%20in%20real%20n8n-52_checks_passing-brightgreen)](./tests/e2e)
 [![Tests](https://img.shields.io/badge/Python%20tests-223_passing-brightgreen)](./run_tests.py)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 > **Ida Bagus Wicitra Dyaksa (Dyaksa): n8n & AI Workflow Automation Engineer.** I build event-driven n8n workflows that connect REST APIs, webhooks, databases and AI services, and I extend n8n with JavaScript Code Nodes and Python/Bash services where the built-in nodes stop. Every workflow here validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human.
 
-**7 importable n8n workflows · 126 nodes · 3 companion Python projects · 223 tests · a linter for the workflow JSON.** `py run_tests.py` runs all of it, with nothing to install.
+**7 importable n8n workflows · 52 end-to-end checks in a real n8n · 223 Python tests · a schema check and a linter for the workflow JSON.**
 
 ---
 
@@ -111,6 +112,14 @@ n8n workflow lint
 
 The [workflow linter](./scripts/lint_workflows.py) checks every `workflow.json` for dangling connections, `$('Node')` references to nodes that don't exist, `$json` reads straight after a node that replaces the item (the most common n8n data-flow bug), node versions with mismatched parameter shapes, JavaScript syntax errors in Code Nodes, and a missing Error Trigger.
 
+### Run every workflow end to end in a real n8n (Docker)
+
+```bash
+py tests/e2e/run_e2e.py
+```
+
+This builds n8n 2.x with FFmpeg and Python, imports all seven workflows, and runs 52 scenario checks against a mock of every external service. The checks cover new/duplicate/invalid leads, invoices over and under threshold, a service that self-heals and one that doesn't, real FFmpeg renders, the ComfyUI polling loop and its give-up, the DCO scale/pause/hold decisions, and a data-quality quarantine. The run takes about 5 minutes. See [tests/e2e](./tests/e2e) for what's real, what's mocked, and the bugs it found.
+
 ### Run the n8n workflows
 
 ```bash
@@ -156,6 +165,7 @@ automation-portfolio/
 ├── .env.example                  # every $env variable the workflows read
 ├── run_tests.py                  # 223 Python tests + the workflow linter
 ├── scripts/lint_workflows.py     # static checks for workflow.json exports
+├── tests/e2e/                    # all 7 workflows in a real n8n: harness, mock API, 52 checks
 ├── docs/phase1-n8n-positioning.md
 ├── project-1 … project-7/        # README.md + workflow.json (+ scripts/ where used)
 ├── project-8-integration-kit/    # OAuth2, HMAC webhooks, pagination, retries (83 tests)
@@ -167,7 +177,7 @@ automation-portfolio/
 
 ## ✅ Honest Status
 
-* **Workflows 1–7** pass the linter and are written against current n8n node schemas, but they haven't yet been run end to end against live credentials. The first item below fixes that.
+* **Workflows 1–7** pass a schema check against n8n's own node definitions, the linter, and 52 end-to-end checks inside a real n8n 2.39. External services are mocked there, so a run against live sandbox credentials is still the first item below.
 * **Impact figures** in the READMEs are tagged as a real result, a **(benchmark)** from Project 10's synthetic dataset, or a **(design target)**. Nothing untagged is invented.
 * **Project 9's** Docker stack (Prometheus + Grafana) hasn't been started. The exporter itself is verified live.
 
