@@ -178,7 +178,7 @@ automation-portfolio/
 ## ✅ Honest Status
 
 * **Workflows 1–7** pass a schema check against n8n's own node definitions, the linter, and 52 end-to-end checks inside a real n8n 2.39. External services are mocked there, so a run against live sandbox credentials is still the first item below.
-* **Impact figures** in the READMEs are tagged as a real result, a **(benchmark)** from Project 10's synthetic dataset, or a **(design target)**. Nothing untagged is invented.
+* **Business impact figures** (on the site and CV) come from [`scripts/impact_estimates.py`](./scripts/impact_estimates.py) and are published with every assumption in [docs/impact-estimates.md](./docs/impact-estimates.md). Each is labelled **estimate** (stated assumptions), **benchmark** (Project 10's model, synthetic dataset) or **real** (an observed result). Nothing unlabelled is invented.
 * **Project 9's** Docker stack (Prometheus + Grafana) hasn't been started. The exporter itself is verified live.
 
 ## 🛣️ What's Next
