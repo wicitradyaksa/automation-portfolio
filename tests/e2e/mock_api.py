@@ -91,6 +91,8 @@ class Handler(BaseHTTPRequestHandler):
             if page < len(pages):
                 data["paging"] = {"next": f"http://mock:8765/ads/insights?page={page + 1}"}
             return self.send(200, data)
+        if path == "/ads/adsets":
+            return self.send(200, {"data": STATE.get("adsets", [])})
         if path == "/aff/conversions":
             return self.send(200, {"data": STATE.get("conversions", [])})
         if path.startswith("/comfy/history/"):
@@ -136,6 +138,13 @@ class Handler(BaseHTTPRequestHandler):
 
         self.record(method="POST", path=path, json=js, bytes=len(raw),
                     has_file=b'filename=' in raw, ctype=self.headers.get("Content-Type", ""))
+        m = re.match(r"^/docker/containers/([^/]+)/restart$", path)
+        if m:  # Docker Engine API via the socket proxy: 204 for a known container, 404 otherwise
+            if m.group(1) in STATE.get("containers", []):
+                self.send_response(204)
+                self.end_headers()
+                return
+            return self.send(404, {"message": f"No such container: {m.group(1)}"})
         if path == "/comfy/prompt":
             return self.send(200, {"prompt_id": "p-123", "number": 1})
         if path.startswith("/ads/"):

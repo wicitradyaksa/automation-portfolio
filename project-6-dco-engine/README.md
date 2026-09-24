@@ -5,7 +5,7 @@
 [![Stats](https://img.shields.io/badge/z--test-Bonferroni-orange)](./scripts/ab_significance.py)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
 
-> **Quick Summary:** A scheduled n8n workflow that pulls paginated ad-spend data and affiliate revenue in parallel (both with retries), joins them on `sub_id`, and computes CTR · CVR · CPA · ROAS · EPC per creative variant in a Code Node. It runs a Bonferroni-corrected significance test in Python and only then changes budget: **scale** (+20% cap), **pause** (and auto-queue replacement creative), or **hold**.
+> **Quick Summary:** A scheduled n8n workflow that pulls paginated ad-spend data, current ad-set budgets and affiliate revenue in parallel (all with retries), joins them on `sub_id`, and computes CTR · CVR · CPA · ROAS · EPC per creative variant in a Code Node. It runs a Bonferroni-corrected significance test in Python and only then changes budget: **scale** (+20% cap), **pause** (and auto-queue replacement creative), or **hold**.
 
 ---
 
@@ -33,8 +33,10 @@
 ```mermaid
 graph TD
     A[Schedule: Every 6 Hours] --> B[HTTP: Fetch Ad Platform Insights<br/>paginated · Retry ×4]
+    A --> S[HTTP: Fetch Ad Set Budgets<br/>paginated · Retry ×4]
     A --> C[HTTP: Fetch Affiliate Conversions<br/>Retry ×4]
-    B --> D[Merge: Wait For Both Pulls]
+    B --> D[Merge: Wait For All Pulls]
+    S --> D
     C --> D
     D --> E[Code: Compute Variant Metrics<br/>join ad_id ↔ sub_id · CTR · CVR · CPA · ROAS · EPC]
     E --> F{Enough Data To Decide?<br/>≥1,000 imp & ≥100 clicks}
@@ -58,7 +60,7 @@ graph TD
 ## ⚙️ Key Technical Features
 
 * **Parallel API ingestion with pagination and retries:** Both fetches start from one trigger. The ad-platform pull uses the HTTP Request node's built-in pagination (`responseContainsNextURL`). Both use node-level **Retry On Fail ×4, 10 s apart**, because a partial pull would silently understate spend and skew every decision.
-* **Cross-source join:** A `Merge` node (append mode) waits for both pulls. `Compute Variant Metrics` then flattens every API page (`{ data: [...] }`) into rows and joins spend to revenue on the sub-ID passed through the click. It does this in code because each HTTP item is a *page*, not a row. Ad names follow `campaign__variantId__placement` so spend can be rolled up per variant.
+* **Cross-source join:** A `Merge` node (append mode, 3 inputs) waits for all three pulls. `Compute Variant Metrics` then flattens every API page (`{ data: [...] }`) into rows and joins spend to revenue on the sub-ID passed through the click, and attaches each ad set's current `daily_budget` (insights rows don't carry it). It does this in code because each HTTP item is a *page*, not a row. Ad names follow `campaign__variantId__placement` so spend can be rolled up per variant.
 * **Metric computation in a Code Node:** It calculates CTR, CVR, CPA, ROAS and EPC, and sets `hasEnoughData` against a configurable floor (`DCO_MIN_IMPRESSIONS`).
 * **Statistics in a testable script:** [`scripts/ab_significance.py`](./scripts/ab_significance.py) is stdlib-only (`math.erf`, no SciPy). It runs a two-proportion z-test with **Bonferroni correction**, because testing six variants at α = 0.05 gives about a 26% chance of at least one false winner.
 * **Multi-way routing with `Switch`:** scale / pause / hold, following conservative decision bands:
@@ -91,7 +93,7 @@ graph TD
 
 ## 🔐 Prerequisites & Environment Variables
 
-n8n v1.0+, with Python 3 available to Execute Command.
+n8n v1.0+ with Python 3 in the container (the repo-root compose file builds it in ([`docker/n8n.Dockerfile`](../docker/n8n.Dockerfile))).
 
 | Variable / Credential | Description | Used by |
 | :--- | :--- | :--- |
@@ -108,11 +110,13 @@ n8n v1.0+, with Python 3 available to Execute Command.
 
 Environment variables reach the workflow as `$env.NAME` through the repo-root [`docker-compose.yml`](../docker-compose.yml) (`env_file: .env`, see [`.env.example`](../.env.example)), which also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
 
-> **Turn on the Error Trigger:** n8n only runs an Error Trigger for workflows that name it as their error workflow. After importing, open **Workflow Settings → Error Workflow** and select this workflow (or a shared error-handler workflow). Until you do, failures show in the execution list but don't alert Slack.
+> **Error Trigger:** the workflow names itself as its error workflow (`settings.errorWorkflow`), so failures alert Slack out of the box. Importing through the editor can give the workflow a new ID. If so, open **Workflow Settings → Error Workflow** and select this workflow again (or a shared error-handler workflow).
 
 ---
 
 ## 🚀 Quick Start / How to Import
+
+> **Full standalone installation guide:** [`SETUP.md`](./SETUP.md) covers every credential with its scopes, the sheet layout, a Docker setup for this workflow only, a node-by-node reference and test steps.
 
 1. **Import** [`workflow.json`](./workflow.json), set the environment variables, and map the credentials.
 2. **Dry-run the decision logic first**, with no APIs needed:

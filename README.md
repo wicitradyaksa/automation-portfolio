@@ -2,13 +2,13 @@
 
 [![n8n](https://img.shields.io/badge/n8n-7%20importable%20workflows-FF6D5A?logo=n8n)](#-the-n8n-workflows)
 [![Lint](https://img.shields.io/badge/workflow%20lint-passing-brightgreen)](./scripts/lint_workflows.py)
-[![E2E](https://img.shields.io/badge/e2e%20in%20real%20n8n-52_checks_passing-brightgreen)](./tests/e2e)
+[![E2E](https://img.shields.io/badge/e2e%20in%20real%20n8n-53_checks_passing-brightgreen)](./tests/e2e)
 [![Tests](https://img.shields.io/badge/Python%20tests-223_passing-brightgreen)](./run_tests.py)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 > **Ida Bagus Wicitra Dyaksa (Dyaksa): n8n & AI Workflow Automation Engineer.** I build event-driven n8n workflows that connect REST APIs, webhooks, databases and AI services, and I extend n8n with JavaScript Code Nodes and Python/Bash services where the built-in nodes stop. Every workflow here validates its input, verifies its own output, routes failures to an Error Trigger, and self-heals before it pages a human.
 
-**7 importable n8n workflows · 52 end-to-end checks in a real n8n · 223 Python tests · a schema check and a linter for the workflow JSON.**
+**7 importable n8n workflows · 53 end-to-end checks in a real n8n · 223 Python tests · a schema check and a linter for the workflow JSON.**
 
 ---
 
@@ -118,21 +118,33 @@ The [workflow linter](./scripts/lint_workflows.py) checks every `workflow.json` 
 py tests/e2e/run_e2e.py
 ```
 
-This builds n8n 2.x with FFmpeg and Python, imports all seven workflows, and runs 52 scenario checks against a mock of every external service. The checks cover new/duplicate/invalid leads, invoices over and under threshold, a service that self-heals and one that doesn't, real FFmpeg renders, the ComfyUI polling loop and its give-up, the DCO scale/pause/hold decisions, and a data-quality quarantine. The run takes about 5 minutes. See [tests/e2e](./tests/e2e) for what's real, what's mocked, and the bugs it found.
+This builds n8n 2.x with FFmpeg and Python, imports all seven workflows, and runs 53 scenario checks against a mock of every external service. The checks cover new/duplicate/invalid leads, invoices over and under threshold, a service that self-heals and one that doesn't, real FFmpeg renders, the ComfyUI polling loop and its give-up, the DCO scale/pause/hold decisions, and a data-quality quarantine. The run takes about 5 minutes. See [tests/e2e](./tests/e2e) for what's real, what's mocked, and the bugs it found.
 
 ### Run the n8n workflows
 
 ```bash
 cp .env.example .env        # sheet IDs, API URLs, tokens
-docker compose up -d        # http://localhost:5678, create the owner account on first visit
+docker compose up -d        # builds the image, then http://localhost:5678 (create the owner account on first visit)
+py scripts/n8n_sync.py push # load all seven workflows into n8n
 ```
 
-Then for each workflow:
-1. **Workflows → Import from File** → that project's `workflow.json`.
-2. Map the placeholder credentials (`… (demo)`) to your own Google Sheets / Slack / SMTP / IMAP / SSH / Postgres credentials.
-3. Open **Workflow Settings → Error Workflow** and select the workflow itself, so its Error Trigger fires.
+Then, in the n8n editor:
+1. Connect your own Google Sheets / Slack / SMTP / IMAP / SSH / Postgres credentials to the nodes marked ⚠️.
+2. Nothing to do for error alerts: each workflow already names itself as its error workflow, and `n8n_sync.py` keeps the IDs, so every Error Trigger is live.
 
-The compose file passes `.env` through as `$env.*`, re-enables `$env` access and the Execute Command node (both off by default in recent n8n releases), and mounts the scripts used by workflows 4–6.
+The compose file builds [`docker/n8n.Dockerfile`](./docker/n8n.Dockerfile): official n8n plus FFmpeg, bash and Python/Pillow, the same image the e2e tests run. It also passes `.env` through as `$env.*`, re-enables `$env` access and the Execute Command node (both off by default in recent n8n releases), and mounts the scripts used by workflows 4–6. The project name is fixed, so every `docker compose` command from this folder reuses the same data volume.
+
+### Keep n8n and the repo in sync
+
+```bash
+py scripts/n8n_sync.py status    # what differs, parameter by parameter
+py scripts/n8n_sync.py pull      # after editing in the n8n editor: n8n -> repo, then lint
+py scripts/n8n_sync.py push      # after editing JSON or a git pull: repo -> n8n (backs up first)
+```
+
+Workflows are matched by id, so nothing is ever duplicated. Credentials never cross over: a push keeps what you connected in n8n, and a pull keeps the repo's placeholders. Editor-only noise (canvas positions, dropped defaults) is ignored, so `status` shows only changes that affect behaviour.
+
+> **Watch out:** if you open a Google Sheets node before its credential is connected, the editor can't load the sheet's columns and silently clears the lookup column. `status` flags this as a difference, and `push` restores it.
 
 ### The scripts run standalone
 
@@ -164,8 +176,10 @@ automation-portfolio/
 ├── docker-compose.yml            # local n8n wired for these workflows
 ├── .env.example                  # every $env variable the workflows read
 ├── run_tests.py                  # 223 Python tests + the workflow linter
+├── docker/n8n.Dockerfile         # n8n + FFmpeg + Python, used by compose and the e2e tests
 ├── scripts/lint_workflows.py     # static checks for workflow.json exports
-├── tests/e2e/                    # all 7 workflows in a real n8n: harness, mock API, 52 checks
+├── scripts/n8n_sync.py           # keep the running n8n and the repo in sync
+├── tests/e2e/                    # all 7 workflows in a real n8n: harness, mock API, 53 checks
 ├── docs/phase1-n8n-positioning.md
 ├── project-1 … project-7/        # README.md + workflow.json (+ scripts/ where used)
 ├── project-8-integration-kit/    # OAuth2, HMAC webhooks, pagination, retries (83 tests)
@@ -177,7 +191,7 @@ automation-portfolio/
 
 ## ✅ Honest Status
 
-* **Workflows 1–7** pass a schema check against n8n's own node definitions, the linter, and 52 end-to-end checks inside a real n8n 2.39. External services are mocked there, so a run against live sandbox credentials is still the first item below.
+* **Workflows 1–7** pass a schema check against n8n's own node definitions, the linter, and 53 end-to-end checks inside a real n8n 2.39. External services are mocked there, so a run against live sandbox credentials is still the first item below.
 * **Business impact figures** (on the site and CV) come from [`scripts/impact_estimates.py`](./scripts/impact_estimates.py) and are published with every assumption in [docs/impact-estimates.md](./docs/impact-estimates.md). Each is labelled **estimate** (stated assumptions), **benchmark** (Project 10's model, synthetic dataset) or **real** (an observed result). Nothing unlabelled is invented.
 * **Project 9's** Docker stack (Prometheus + Grafana) hasn't been started. The exporter itself is verified live.
 

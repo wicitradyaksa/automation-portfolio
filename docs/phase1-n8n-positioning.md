@@ -110,7 +110,7 @@ Each case study follows the same shape: **Problem → n8n Architecture → Techn
 2. **Code Node: Set Target Services** holds the service registry in one place.
 3. **HTTP Request: Health Check** (`onError: continueRegularOutput`, so a timeout is treated as data).
 4. **IF: Unhealthy?** Healthy services go to **Sheets: Heartbeat log**.
-5. **Execute Command: `docker restart`**, then **Wait 30s**, then an **HTTP Request re-check**.
+5. **HTTP Request: Docker API restart** (through a restart-only socket proxy), then **Wait 30s**, then an **HTTP Request re-check**.
 6. **IF: Still down?** If yes, **Slack on-call escalation** and **Sheets: Incident log**. If no, **Slack `#incidents` self-heal notice** and **Sheets: Self-heal log**.
 7. **Error Trigger → Slack**.
 
@@ -178,8 +178,8 @@ Each case study follows the same shape: **Problem → n8n Architecture → Techn
 **The Problem.** Ad platforms can't see affiliate revenue, and most "winning" creatives are noise. Scaling budget into noise burns money faster than a human can.
 
 **n8n Architecture**
-1. **Schedule Trigger (every 6h)** starts two parallel branches: **HTTP Request: Ad Platform Insights (paginated, retry ×4)** and **HTTP Request: Affiliate Conversions (retry ×4)**.
-2. **Merge (append): Wait For Both Pulls**, then the Code Node joins `ad_id ↔ sub_id` across every API page.
+1. **Schedule Trigger (every 6h)** starts three parallel branches: **HTTP Request: Ad Platform Insights (paginated, retry ×4)**, **HTTP Request: Ad Set Budgets (paginated, retry ×4)** and **HTTP Request: Affiliate Conversions (retry ×4)**.
+2. **Merge (append, 3 inputs): Wait For All Pulls**, then the Code Node joins `ad_id ↔ sub_id` across every API page.
 3. **Code Node: Compute Variant Metrics** (CTR · CVR · CPA · ROAS · EPC), then **IF: Enough data?** (≥1,000 impressions and ≥100 clicks). If not, **Sheets: log still learning**.
 4. **Execute Command: `ab_significance.py`** (two-proportion z-test with Bonferroni correction), then **Code Node: Parse Result**.
 5. **Switch: Route Decision**:

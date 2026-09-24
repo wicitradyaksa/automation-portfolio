@@ -104,7 +104,7 @@ def invoice_pdf(lines):
     return out.encode("latin-1").hex()
 
 
-def ad_row(variant, ad_id, imp, clicks, spend, budget=100):
+def ad_row(variant, ad_id, imp, clicks, spend, budget=None):
     row = {"ad_id": ad_id, "ad_name": f"c_summer__{variant}__feed", "adset_id": f"as_{variant}",
            "campaign_id": "c_summer_sale", "impressions": imp, "clicks": clicks, "spend": spend}
     if budget is not None:
@@ -184,7 +184,9 @@ def p2():
 
 
 def p3():
-    scenario({"health": {"api-gateway": [200], "worker-queue": [503, 200], "public-website": [503, 503]}})
+    # "website" is not a known container, so its restart gets a 404 like a real Docker API would
+    scenario({"health": {"api-gateway": [200], "worker-queue": [503, 200], "public-website": [503, 503]},
+              "containers": ["api-gateway", "worker-queue"]})
     cli_execute("p3")
     hb = columns_of("Log Heartbeat (OK)")
     check("P3 healthy service: heartbeat logged", any(r.get("service") == "api-gateway" for r in hb), str(hb))
@@ -196,6 +198,9 @@ def p3():
     inc = columns_of("Log Incident") + columns_of("Log Self-Heal")
     check("P3 incidents logged as distinct outcomes",
           {("public-website", "escalated"), ("worker-queue", "self_healed")} <= {(r.get("service"), r.get("outcome")) for r in inc}, str(inc))
+    restarts = sorted(c["path"] for c in calls() if c["path"].startswith("/docker/"))
+    check("P3 each unhealthy container restarted through the Docker API",
+          restarts == ["/docker/containers/website/restart", "/docker/containers/worker-queue/restart"], str(restarts))
     check("P3 failed docker restart did not stop the workflow (re-check still ran)",
           sum(1 for c in calls() if c["path"].startswith("/health/")) == 5)
 
@@ -274,7 +279,10 @@ def p6():
     conv = [{"sub_id": a, "conversions": c, "revenue": r} for a, c, r in [
         ("ad_1001", 75, 1200.0), ("ad_1002", 112, 1900.0), ("ad_1003", 42, 500.0), ("ad_1004", 78, 1250.0),
         ("ad_1005", 1, 15.0), ("ad_1006", 150, 3000.0), ("ad_1007", 150, 3000.0)]]
-    scenario({"ads_pages": pages, "conversions": conv})
+    # Budgets come from the ad-set endpoint, as on Meta; hero_story_g's ad set has none
+    adsets = [{"id": f"as_{v}", "daily_budget": 100} for v in
+              ("hero_control", "hero_story_b", "hero_story_c", "hero_story_d", "hero_story_e", "hero_story_f")]
+    scenario({"ads_pages": pages, "conversions": conv, "adsets": adsets})
     cli_execute("p6")
     ins = [c for c in calls() if c["path"] == "/ads/insights"]
     check("P6 followed pagination (2 pages)", len(ins) == 2, str(len(ins)))

@@ -1,4 +1,5 @@
 {
+  "id": "gOwLkEsTF3teH5Rm",
   "name": "VPS Ops & Nightly Data Pipeline",
   "nodes": [
     {
@@ -813,7 +814,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "gOwLkEsTF3teH5Rm"
   },
   "pinData": {},
   "meta": {

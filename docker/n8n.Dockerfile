@@ -1,9 +1,12 @@
-# n8n plus the tools the portfolio's Execute Command nodes call:
-# bash + FFmpeg/ffprobe (project 4), Python 3 + Pillow (projects 5 and 6).
+# n8n plus the tools this portfolio's Execute Command nodes call:
+#   bash + FFmpeg/ffprobe (project 4), Python 3 + Pillow (projects 5 and 6).
+#
+# Used by the repo-root docker-compose.yml (your everyday n8n) and by tests/e2e,
+# so both run exactly the same image.
 #
 # The official n8n image is a hardened Alpine build with no package manager, so the
-# tools are installed in a stock Alpine stage of the same release (same musl libc)
-# and copied across. Test image only, not for production.
+# tools are installed in a stock Alpine stage of the same release (same musl libc) and
+# copied across. Rebuild after an n8n upgrade:  docker compose build --pull
 FROM alpine:3.24 AS tools
 RUN apk add --no-cache bash ffmpeg python3 py3-pillow font-dejavu \
  && mkdir /out \

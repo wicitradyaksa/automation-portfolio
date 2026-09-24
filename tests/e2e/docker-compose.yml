@@ -2,8 +2,10 @@
 # every external service. Driven by run_e2e.py; not for production use.
 services:
   mock:
-    image: n8n-portfolio-e2e
-    build: .
+    image: n8n-portfolio:latest
+    build:
+      context: ../..
+      dockerfile: docker/n8n.Dockerfile
     entrypoint: ["python3", "/e2e/mock_api.py"]
     volumes:
       - ./:/e2e:ro
@@ -11,8 +13,11 @@ services:
       - "8765:8765"
 
   n8n:
-    image: n8n-portfolio-e2e
-    build: .
+    # the same image as the repo-root compose file, built from docker/n8n.Dockerfile
+    image: n8n-portfolio:latest
+    build:
+      context: ../..
+      dockerfile: docker/n8n.Dockerfile
     depends_on: [mock]
     ports:
       - "5679:5678"
@@ -32,6 +37,7 @@ services:
       - ASSET_STORE_TOKEN=e2e-token
       - COMFYUI_URL=http://mock:8765/comfy
       - N8N_BASE_URL=http://localhost:5678
+      - DOCKER_API_URL=http://mock:8765/docker
       - ADS_API_URL=http://mock:8765/ads
       - ADS_API_TOKEN=e2e-token
       - AFFILIATE_API_URL=http://mock:8765/aff

@@ -1,4 +1,5 @@
 {
+  "id": "A0t8P3Hl8cfh8RGS",
   "name": "DCO Engine (Creative Performance Loop)",
   "nodes": [
     {
@@ -44,7 +45,7 @@
       "typeVersion": 4.2,
       "position": [
         160,
-        -110
+        -200
       ],
       "parameters": {
         "method": "GET",
@@ -99,7 +100,7 @@
       "typeVersion": 4.2,
       "position": [
         160,
-        110
+        200
       ],
       "parameters": {
         "method": "GET",
@@ -137,7 +138,7 @@
     },
     {
       "id": "d528c3fd-8438-41e1-b837-5c850325b31d",
-      "name": "Wait For Both Pulls",
+      "name": "Wait For All Pulls",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
@@ -146,9 +147,10 @@
       ],
       "parameters": {
         "mode": "append",
+        "numberInputs": 3,
         "options": {}
       },
-      "notes": "Synchronisation point only: waits until both API pulls have finished.\nThe ad_id <-> sub_id join happens in Compute Variant Metrics."
+      "notes": "Synchronisation point only: waits until all three API pulls have finished.\nThe joins happen in Compute Variant Metrics."
     },
     {
       "id": "e9e59584-7ebf-47ac-a498-3c207a40c439",
@@ -160,7 +162,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Join spend (ad platform) to revenue (affiliate network) on ad_id <-> sub_id, then\n// roll up to one record per creative variant with the metrics a buyer decides on.\nconst MIN_IMPRESSIONS = Number($env.DCO_MIN_IMPRESSIONS || 1000);\nconst TARGET_ROAS     = Number($env.DCO_TARGET_ROAS || 1.3);\n\n// Each HTTP item is one API page ({ data: [...] }); flatten pages into rows.\nconst rowsOf = node => $(node).all().flatMap(i => i.json.data || i.json.conversions || [i.json]);\nconst spendRows = rowsOf('Fetch Ad Platform Insights');\nconst revenueBySub = {};\nfor (const r of rowsOf('Fetch Affiliate Conversions')) {\n  const k = String(r.sub_id || '');\n  const acc = revenueBySub[k] ||= { conversions: 0, revenue: 0 };\n  acc.conversions += Number(r.conversions || 0);\n  acc.revenue     += Number(r.revenue || r.payout || 0);\n}\n\nconst byVariant = {};\nfor (const r of spendRows) {\n  // ad_name convention: campaign__variantId__placement\n  const variantId = (r.ad_name || '').split('__')[1] || r.ad_id;\n  const v = byVariant[variantId] ||= {\n    variantId, adIds: [], adSetId: r.adset_id, campaignId: r.campaign_id,\n    isControl: variantId.endsWith('_control'), currentBudget: Number(r.daily_budget || 0),\n    impressions: 0, clicks: 0, spend: 0, conversions: 0, revenue: 0\n  };\n  if (!v.adIds.includes(r.ad_id)) v.adIds.push(r.ad_id);\n  const rev = revenueBySub[String(r.ad_id)] || { conversions: 0, revenue: 0 };\n  v.impressions += Number(r.impressions || 0);\n  v.clicks      += Number(r.clicks || 0);\n  v.spend       += Number(r.spend || 0);\n  v.conversions += rev.conversions;\n  v.revenue     += rev.revenue;\n}\n\nreturn Object.values(byVariant).map(v => {\n  const ctr  = v.impressions ? v.clicks / v.impressions : 0;\n  const cvr  = v.clicks ? v.conversions / v.clicks : 0;\n  const cpa  = v.conversions ? v.spend / v.conversions : null;\n  const roas = v.spend ? v.revenue / v.spend : 0;\n  const epc  = v.clicks ? v.revenue / v.clicks : 0;\n  return { json: { ...v,\n    ctr, cvr, cpa, roas, epc,\n    targetRoas: TARGET_ROAS,\n    // Below the volume floor nothing is decided: noise is not a signal.\n    hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,\n    evaluatedAt: new Date().toISOString()\n  }};\n});"
+        "jsCode": "// Join spend (ad platform) to revenue (affiliate network) on ad_id <-> sub_id, then\n// roll up to one record per creative variant with the metrics a buyer decides on.\nconst MIN_IMPRESSIONS = Number($env.DCO_MIN_IMPRESSIONS || 1000);\nconst TARGET_ROAS     = Number($env.DCO_TARGET_ROAS || 1.3);\n\n// Each HTTP item is one API page ({ data: [...] }); flatten pages into rows.\nconst rowsOf = node => $(node).all().flatMap(i => i.json.data || i.json.conversions || [i.json]);\nconst spendRows = rowsOf('Fetch Ad Platform Insights');\n// Budgets live on the ad set, not in insights rows. Without them currentBudget is 0 and\n// Parse Test Result blocks every scale decision.\nconst budgetByAdSet = {};\nfor (const s of rowsOf('Fetch Ad Set Budgets')) {\n  if (s.id != null) budgetByAdSet[String(s.id)] = Number(s.daily_budget || 0);\n}\nconst revenueBySub = {};\nfor (const r of rowsOf('Fetch Affiliate Conversions')) {\n  const k = String(r.sub_id || '');\n  const acc = revenueBySub[k] ||= { conversions: 0, revenue: 0 };\n  acc.conversions += Number(r.conversions || 0);\n  acc.revenue     += Number(r.revenue || r.payout || 0);\n}\n\nconst byVariant = {};\nfor (const r of spendRows) {\n  // ad_name convention: campaign__variantId__placement\n  const variantId = (r.ad_name || '').split('__')[1] || r.ad_id;\n  const v = byVariant[variantId] ||= {\n    variantId, adIds: [], adSetId: r.adset_id, campaignId: r.campaign_id,\n    isControl: variantId.endsWith('_control'), currentBudget: Number(r.daily_budget || budgetByAdSet[String(r.adset_id)] || 0),\n    impressions: 0, clicks: 0, spend: 0, conversions: 0, revenue: 0\n  };\n  if (!v.adIds.includes(r.ad_id)) v.adIds.push(r.ad_id);\n  const rev = revenueBySub[String(r.ad_id)] || { conversions: 0, revenue: 0 };\n  v.impressions += Number(r.impressions || 0);\n  v.clicks      += Number(r.clicks || 0);\n  v.spend       += Number(r.spend || 0);\n  v.conversions += rev.conversions;\n  v.revenue     += rev.revenue;\n}\n\nreturn Object.values(byVariant).map(v => {\n  const ctr  = v.impressions ? v.clicks / v.impressions : 0;\n  const cvr  = v.clicks ? v.conversions / v.clicks : 0;\n  const cpa  = v.conversions ? v.spend / v.conversions : null;\n  const roas = v.spend ? v.revenue / v.spend : 0;\n  const epc  = v.clicks ? v.revenue / v.clicks : 0;\n  return { json: { ...v,\n    ctr, cvr, cpa, roas, epc,\n    targetRoas: TARGET_ROAS,\n    // Below the volume floor nothing is decided: noise is not a signal.\n    hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,\n    evaluatedAt: new Date().toISOString()\n  }};\n});"
       }
     },
     {
@@ -578,6 +580,53 @@
           "name": "Slack - Growth (demo)"
         }
       }
+    },
+    {
+      "id": "7c1f0e52-3b8a-4d6e-9f21-a6b4c8d0e913",
+      "name": "Fetch Ad Set Budgets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.ADS_API_URL}}/adsets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,daily_budget"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.ADS_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{$response.body.paging?.next}}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.paging?.next }}"
+            }
+          }
+        }
+      },
+      "notes": "Current daily budget per ad set. Insights rows don't carry it, and scaling\nwithout it would multiply zero.",
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 10000
     }
   ],
   "connections": {
@@ -586,6 +635,11 @@
         [
           {
             "node": "Fetch Ad Platform Insights",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Ad Set Budgets",
             "type": "main",
             "index": 0
           },
@@ -601,7 +655,7 @@
       "main": [
         [
           {
-            "node": "Wait For Both Pulls",
+            "node": "Wait For All Pulls",
             "type": "main",
             "index": 0
           }
@@ -612,9 +666,9 @@
       "main": [
         [
           {
-            "node": "Wait For Both Pulls",
+            "node": "Wait For All Pulls",
             "type": "main",
-            "index": 1
+            "index": 2
           }
         ]
       ]
@@ -760,7 +814,7 @@
         ]
       ]
     },
-    "Wait For Both Pulls": {
+    "Wait For All Pulls": {
       "main": [
         [
           {
@@ -770,11 +824,23 @@
           }
         ]
       ]
+    },
+    "Fetch Ad Set Budgets": {
+      "main": [
+        [
+          {
+            "node": "Wait For All Pulls",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "A0t8P3Hl8cfh8RGS"
   },
   "pinData": {},
   "meta": {

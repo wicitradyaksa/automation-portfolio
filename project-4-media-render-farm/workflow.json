@@ -1,4 +1,5 @@
 {
+  "id": "wwOtLXxpSNm4c2GF",
   "name": "Media Render Farm (FFmpeg)",
   "nodes": [
     {
@@ -612,7 +613,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "wwOtLXxpSNm4c2GF"
   },
   "pinData": {},
   "meta": {

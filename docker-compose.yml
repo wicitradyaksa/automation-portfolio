@@ -3,11 +3,23 @@
 #   cp .env.example .env     # then fill in the IDs / URLs you actually use
 #   docker compose up -d     # http://localhost:5678 - create the owner account on first visit
 #
-# The stock n8n image has no FFmpeg, ffprobe or Pillow. Projects 4 and 5 need them for
-# real renders; the other workflows run as-is.
+# Run it from this folder only. The fixed project name below means every `docker compose`
+# command reuses the same data volume (automation-portfolio_n8n_data): no -p flag needed,
+# and no chance of starting a second, empty n8n by accident.
+#
+# Workflows live in the repo as project-*/workflow.json. Keep n8n and the repo in step with
+#   py scripts/n8n_sync.py status | push | pull
+name: automation-portfolio
+
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    # Official n8n plus bash, FFmpeg/ffprobe and Python 3 + Pillow, which projects 4-6 call.
+    # Rebuild after an n8n release:  docker compose build --pull && docker compose up -d
+    build:
+      context: .
+      dockerfile: docker/n8n.Dockerfile
+    image: n8n-portfolio:latest
+    container_name: N8N_Workflows
     restart: unless-stopped
     ports:
       - "5678:5678"
@@ -33,6 +45,20 @@ services:
       - ./project-4-media-render-farm/scripts/render_variant.sh:/data/scripts/render_variant.sh:ro
       - ./project-5-generative-creative-factory/scripts/postprocess_creative.py:/data/scripts/postprocess_creative.py:ro
       - ./project-6-dco-engine/scripts/ab_significance.py:/data/scripts/ab_significance.py:ro
+
+  # Project 3 restarts unhealthy containers through the Docker Engine API. This proxy is the only
+  # thing that touches the Docker socket, and it allows container restarts and nothing else.
+  # n8n reaches it as DOCKER_API_URL=http://docker-proxy:2375 (see .env.example).
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: N8N_Docker_Proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - POST=1
+      - ALLOW_RESTARTS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   n8n_data:

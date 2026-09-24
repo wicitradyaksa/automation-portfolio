@@ -6,7 +6,7 @@ py tests/e2e/run_e2e.py p3 p6      # just some workflows
 py tests/e2e/run_e2e.py --keep     # leave n8n running on http://localhost:5679 to poke at
 ```
 
-This imports every `workflow.json` into **n8n 2.x** (the official image, plus FFmpeg, bash and Python/Pillow for the Execute Command nodes). It runs each workflow through its business scenarios and asserts on what the workflow actually did.
+This imports every `workflow.json` into **n8n 2.x** (built from [`docker/n8n.Dockerfile`](../../docker/n8n.Dockerfile): the official image plus FFmpeg, bash and Python/Pillow, the same image the repo-root compose file runs). It runs each workflow through its business scenarios and asserts on what the workflow actually did.
 
 ## What is real and what is mocked
 
@@ -15,7 +15,7 @@ This imports every `workflow.json` into **n8n 2.x** (the official image, plus FF
 | n8n itself: import, publish, webhook routing, execution order, expression resolution, paired items | Slack, Google Sheets, SMTP, SSH and Postgres, whose nodes are rewritten into HTTP Requests to [`mock_api.py`](./mock_api.py) |
 | Code, IF, Switch, Merge, Split In Batches, Wait, Respond to Webhook | The ad platform, affiliate network, ComfyUI and asset store, played by the same mock over real HTTP |
 | HTTP Request nodes, including pagination, binary downloads and multipart uploads | The IMAP trigger, replaced by a Manual Trigger plus a PDF download from the mock |
-| Execute Command: FFmpeg renders, `ffprobe`, the Python post-processor and significance test | `docker restart` (no Docker socket in the test container, so the failure path is what's exercised) |
+| Execute Command: FFmpeg renders, `ffprobe`, the Python post-processor and significance test | The Docker Engine API behind the socket proxy: restarts answer `204` for known containers and `404` otherwise, so both the self-heal and the failed-restart path run |
 | Webhook → workflow → webhook hand-offs (workflow 5 calling workflow 4) | |
 
 The mock records every call **with its parameters already resolved by n8n**, so the tests check the values a real Slack message or Sheets row would have contained. The most common n8n bug, an expression reading the wrong item, shows up as a wrong or empty value in the recording.

@@ -97,7 +97,7 @@ The encode lives in a script rather than a node, so it can be reviewed and teste
 
 ## 🔐 Prerequisites & Environment Variables
 
-n8n v1.0+, with FFmpeg/ffprobe available to the n8n container, `scripts/` mounted at `/data/scripts`, and a render directory at `/data/renders`.
+n8n v1.0+ with FFmpeg/ffprobe in the container (the repo-root compose file builds it in ([`docker/n8n.Dockerfile`](../docker/n8n.Dockerfile))), `scripts/` mounted at `/data/scripts`, and a render directory at `/data/renders`.
 
 | Variable / Credential | Description | Used by |
 | :--- | :--- | :--- |
@@ -111,14 +111,16 @@ n8n v1.0+, with FFmpeg/ffprobe available to the n8n container, `scripts/` mounte
 
 Environment variables reach the workflow as `$env.NAME` through the repo-root [`docker-compose.yml`](../docker-compose.yml) (`env_file: .env`, see [`.env.example`](../.env.example)), which also sets `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
 
-> **Turn on the Error Trigger:** n8n only runs an Error Trigger for workflows that name it as their error workflow. After importing, open **Workflow Settings → Error Workflow** and select this workflow (or a shared error-handler workflow). Until you do, failures show in the execution list but don't alert Slack.
+> **Error Trigger:** the workflow names itself as its error workflow (`settings.errorWorkflow`), so failures alert Slack out of the box. Importing through the editor can give the workflow a new ID. If so, open **Workflow Settings → Error Workflow** and select this workflow again (or a shared error-handler workflow).
 
 ---
 
 ## 🚀 Quick Start / How to Import
 
+> **Full standalone installation guide:** [`SETUP.md`](./SETUP.md) covers every credential with its scopes, the sheet layout, a Docker setup for this workflow only, a node-by-node reference and test steps.
+
 1. **Import** [`workflow.json`](./workflow.json) via **`...` → Import from File**.
-2. **Start n8n with the repo-root compose file.** It mounts `render_variant.sh` at `/data/scripts` and `./data` at `/data`. Add FFmpeg to the image (the stock image has none) and put a master video in `./data/masters/`.
+2. **Start n8n with the repo-root compose file.** It mounts `render_variant.sh` at `/data/scripts` and `./data` at `/data`. Its image already includes FFmpeg. Put a master video in `./data/masters/`.
 3. **Map** the Sheets and Slack credentials, then **Activate**.
 4. **Send a request:**
 

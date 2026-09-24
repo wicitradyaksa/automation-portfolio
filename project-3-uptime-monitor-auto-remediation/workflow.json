@@ -1,4 +1,5 @@
 {
+  "id": "KcLhMsXGgnP3h5SW",
   "name": "Uptime Monitor & Auto-Remediation",
   "nodes": [
     {
@@ -148,18 +149,36 @@
     {
       "id": "f1a7f711-ad44-4867-9dee-ebf3de4955ea",
       "name": "Restart Container",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         820,
         -80
       ],
       "parameters": {
-        "command": "=docker restart {{ $('Set Target Services').item.json.container }} 2>&1 || echo \"restart failed: {{ $('Set Target Services').item.json.container }}\"",
-        "executeOnce": false
+        "method": "POST",
+        "url": "={{ $env.DOCKER_API_URL }}/containers/{{ encodeURIComponent($('Set Target Services').item.json.container) }}/restart",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "t",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
       },
       "onError": "continueRegularOutput",
-      "notes": "Runs once per service (Execute Once is off: the node's default is to run a single time for\nthe whole batch). The command always exits 0; the re-check below decides whether it worked."
+      "notes": "Docker Engine API (POST /containers/{name}/restart, 204 on success), reached through a\nsocket proxy that only allows restarts. Never errors: a failed restart (404, proxy down)\njust means the re-check below still fails and the service is escalated."
     },
     {
       "id": "5e8711d7-bd87-4c62-bdbd-0ad7d15a9852",
@@ -545,7 +564,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "KcLhMsXGgnP3h5SW"
   },
   "pinData": {},
   "meta": {
