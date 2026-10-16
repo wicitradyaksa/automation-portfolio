@@ -47,6 +47,12 @@ Each folder holds a `workflow.json` you can import straight into n8n, plus a REA
 | 9 | **[Observability Layer](./project-9-observability-layer)** | Correlation IDs across workflow hops, a Prometheus exporter, 7 alert rules (including "this workflow silently stopped"), a Grafana dashboard and an on-call runbook for workflows 1–7. | 105 |
 | 10 | **[ROI Case Study](./project-10-migration-case-study)** | Before/after impact of workflow 2, with every number regenerated from raw CSVs and tests that fail if the prose drifts from the data. **The dataset is synthetic**, and the README says so up front. | 35 |
 
+### Beyond n8n: a production Python system
+
+| # | Project | Why it's here | Tests |
+|---|---|---|---|
+| 11 | **[AI Job-Search Pipeline](./project-11-ai-job-search-pipeline)** | A daily pipeline I run for my own job search: ~6,100 sources, free filters before any model call, Claude Haiku scoring with prompt caching, Claude Opus outreach under a hard budget ceiling, Gmail drafts that are never sent, Telegram controls, and a Playwright form filler that never submits. A case study with measured numbers; the code is private and walked through on request. | 1,200 |
+
 ---
 
 ## 🔗 They Connect to Each Other
@@ -184,7 +190,8 @@ automation-portfolio/
 ├── project-1 … project-7/        # README.md + workflow.json (+ scripts/ where used)
 ├── project-8-integration-kit/    # OAuth2, HMAC webhooks, pagination, retries (83 tests)
 ├── project-9-observability-layer/  # exporter, alerts, dashboard, runbook (105 tests)
-└── project-10-migration-case-study/ # ROI method, numbers from data (35 tests)
+├── project-10-migration-case-study/ # ROI method, numbers from data (35 tests)
+└── project-11-ai-job-search-pipeline/ # case study: daily LLM pipeline (code private)
 ```
 
 ---
