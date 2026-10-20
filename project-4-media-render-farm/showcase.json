@@ -1,0 +1,89 @@
+{
+  "slug": "render-farm",
+  "workflow": "./workflow.json",
+  "title": "Media render farm (FFmpeg)",
+  "description": "An n8n workflow that turns one master video into every ad format and hook, renders them one at a time with FFmpeg, and checks every file before it is uploaded. Built by Dyaksa.",
+  "intro": "An n8n workflow that turns one master video into every ad format and opening hook, renders them through FFmpeg one at a time, and checks each file against its spec before it is uploaded. Scroll to follow one variant through all 18 nodes.",
+  "itemNoun": "variant",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-4-media-render-farm",
+  "route": ["Render Request Webhook", "Build Render Matrix", "Render One At A Time", "FFmpeg Transcode", "Probe Output", "Validate Render", "Render OK?", "Generate Thumbnail", "Read Render File", "Upload To Asset Store", "Log To Asset Manifest", "Render One At A Time", "Batch Complete?", "Post Render Summary"],
+  "stations": [
+    {
+      "hud": "Render matrix", "rest": 1, "focus": ["Render Request Webhook", "Build Render Matrix", "Build Render Matrix"],
+      "title": "One request becomes every variant.",
+      "body": "<p>A POST names a master file, the formats and the hooks. A Code node multiplies them into one job per variant, each with its target size, encoder settings and output path. An unknown ratio is skipped.</p>",
+      "code": "'9:16': { w: 1080, h: 1920, label: 'story',   crf: 23, maxrate: '4M'  },\n'1:1':  { w: 1080, h: 1080, label: 'feed',    crf: 23, maxrate: '4M'  },",
+      "check": ["node", "Render Request Webhook · POST /render-request"]
+    },
+    {
+      "hud": "202 Accepted", "rest": 1, "focus": ["Build Render Matrix", "Ack Request", "Ack Request"], "offset": [-0.6, 5.0, 5.6],
+      "title": "The caller gets an answer before rendering starts.",
+      "body": "<p>Respond to Webhook returns <code>202</code> with the number of queued variants straight away, so no client holds a connection open while a batch renders for minutes.</p>",
+      "code": "{{ { queued: $('Build Render Matrix').all().length, assetId: $json.assetId } }}",
+      "check": ["node", "Ack Request · 202"]
+    },
+    {
+      "hud": "One at a time", "rest": 3, "focus": ["Render One At A Time", "Render One At A Time", "FFmpeg Transcode"],
+      "title": "Renders run one at a time, on purpose.",
+      "body": "<p>Loop Over Items with a batch size of 1 means one FFmpeg process at a time, because encoding is CPU-bound. The encode is a reviewed shell script: it letterboxes instead of stretching, sets square pixels and normalises loudness.</p>",
+      "check": ["node", "Render One At A Time · batchSize 1 → render_variant.sh"]
+    },
+    {
+      "hud": "Verify", "rest": 6, "focus": ["Probe Output", "Validate Render", "Validate Render", "Render OK?"],
+      "title": "Done means checked, not “exited 0”.",
+      "body": "<p><code>ffprobe</code> reads every output and a Code node compares it with the requested spec. A file that is too short, too small, or the wrong width or height fails, even when FFmpeg reported success.</p>",
+      "code": "if (duration < 1)                     problems.push('duration_under_1s');\nif (bytes < 10240)                    problems.push('file_too_small');\nif (Number(v.width)  !== spec.width)  problems.push('width_mismatch');\nif (Number(v.height) !== spec.height) problems.push('height_mismatch');",
+      "check": ["node", "Probe Output → Validate Render"]
+    },
+    {
+      "hud": "Reject", "rest": 6, "focus": ["Render OK?", "Log Failed Render", "Alert Creative Ops", "Alert Creative Ops"], "offset": [-0.4, 5.2, 5.8],
+      "title": "One bad variant doesn't stop the batch.",
+      "body": "<p>A failed render is logged to Failed Renders with the exact problem, <code>#creative-ops</code> is told, and the loop moves on to the next variant. Transcode and probe continue on error, so a crash arrives here as data, not as a stopped workflow.</p>",
+      "check": ["node", "Render OK? · false → Log Failed Render → Slack → loop"]
+    },
+    {
+      "hud": "Upload", "rest": 10, "focus": ["Generate Thumbnail", "Read Render File", "Upload To Asset Store", "Log To Asset Manifest"], "offset": [-0.6, 5.0, 5.8],
+      "title": "Only verified files reach the manifest.",
+      "body": "<p>A passing render gets a thumbnail, is read as binary and uploaded as multipart with Retry On Fail, three tries 5 seconds apart. Then it is written to the Asset Manifest as <code>ready</code>. The upload token comes from <code>$env</code>, never from node parameters.</p>",
+      "check": ["node", "Upload To Asset Store · retry 3 × 5 s"]
+    },
+    {
+      "hud": "Summary", "rest": 13, "focus": ["Batch Complete?", "Post Render Summary", "Post Render Summary"], "offset": [0.6, 4.6, 5.4],
+      "title": "One message per batch, not one per file.",
+      "body": "<p>When the loop runs out of variants, Post Render Summary runs once and points the team to the manifest and the Failed Renders sheet.</p>",
+      "check": ["node", "Batch Complete? → Post Render Summary · execute once"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 13, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "An unexpected crash still reaches a person.",
+      "body": "<p>Anything the failure branch doesn't catch goes to an Error Trigger, which posts the failing node, the error and the execution link to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 13, "focus": "all",
+      "title": "18 nodes and one loop.",
+      "body": "<p>The loop is the queue: every variant, pass or fail, returns to Loop Over Items until none are left. The manifest it writes is what the DCO engine project tests against.</p>",
+      "check": ["file", "workflow.json + scripts/render_variant.sh"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Build Render Matrix", "Ack Request"], "color": "ok", "from": 1.05, "to": 1.6, "keep": true },
+    { "path": ["Render OK?", "Log Failed Render", "Alert Creative Ops", "Render One At A Time"], "color": "bad", "from": 4.05, "to": 4.8, "keep": true },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 7.05, "to": 7.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["Render “succeeds” but is 0 s or 4 KB", "Probe Output → Validate Render", "Rejected, logged to Failed Renders, Slack alert, loop continues"],
+    ["Output dimensions don't match the spec", "Validate Render width and height checks", "Rejected with the specific mismatch in the log"],
+    ["Encoder crash mid-file", "<code>.partial</code> temp file and On Error → Continue on the command", "No half-written file appears as finished, and the variant is logged as failed"],
+    ["Asset store upload flakes", "Node-level Retry On Fail", "3 attempts, 5 s apart"],
+    ["Client times out waiting", "<code>202</code> ack before rendering", "Batch continues regardless of the caller"],
+    ["Unexpected workflow failure", "Error Trigger → Slack", "Engineering alerted"]
+  ],
+  "notBuilt": [
+    "A real job queue (n8n queue mode or Redis workers) so renders survive an n8n restart",
+    "Per-render sub-workflow with a dead-letter entry after repeated failures",
+    "GPU encoding with h264_nvenc where available",
+    "Perceptual diffing against the master to catch badly cropped renders",
+    "Auto-captions via Whisper, burned in per variant"
+  ]
+}

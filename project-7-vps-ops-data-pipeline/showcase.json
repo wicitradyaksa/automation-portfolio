@@ -1,0 +1,97 @@
+{
+  "slug": "vps-nightly-ops",
+  "workflow": "./workflow.json",
+  "title": "VPS ops & nightly data pipeline",
+  "description": "A nightly n8n workflow that health-checks a VPS over SSH, clears disk pressure, takes a verified backup, and loads data into Postgres only if it passes SQL quality checks. Built by Dyaksa.",
+  "intro": "A nightly n8n workflow that health-checks a server over SSH, clears a full disk, takes a backup it actually verifies, and loads the day's data into Postgres only if it passes quality checks. Scroll to follow one night through all 24 nodes.",
+  "itemNoun": "night",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-7-vps-ops-data-pipeline",
+  "route": ["Nightly 02:00", "Run VPS Healthcheck", "Parse Health JSON", "Backup Volumes", "Verify Backup", "Backup Good?", "Run ETL Load", "Parse ETL Result", "Data Quality Checks", "Assert Data Quality", "Data Quality Passed?", "Log Nightly Run", "Post Nightly Digest"],
+  "stations": [
+    {
+      "hud": "Healthcheck", "rest": 2, "focus": ["Nightly 02:00", "Run VPS Healthcheck", "Parse Health JSON", "Parse Health JSON"],
+      "title": "The server reports on itself, in JSON.",
+      "body": "<p>At 02:00, n8n runs a Bash healthcheck over SSH: disk, memory, load, unhealthy containers, failed systemd units and TLS expiry. If the output isn't JSON, the Code node throws, because a silent parse failure would look exactly like a healthy server.</p>",
+      "code": "catch (e) { throw new Error(`vps_healthcheck.sh returned non-JSON: ${raw.slice(0,300)}`); }",
+      "check": ["node", "Run VPS Healthcheck · vps_healthcheck.sh"]
+    },
+    {
+      "hud": "Disk self-heal", "rest": 2, "focus": ["Disk Under Pressure?", "Reclaim Disk Space", "Re-Check Disk", "Still Full?"], "offset": [-0.6, 5.0, 5.8],
+      "title": "A full disk is cleared, then checked again.",
+      "body": "<p>Above 85% disk, it prunes Docker images and containers older than a week and trims the system journal, then reads disk usage again. Only if it is still over 85% does <code>#ops</code> get an alert.</p>",
+      "code": "docker system prune -af --filter 'until=168h' && journalctl --vacuum-time=7d",
+      "check": ["node", "Reclaim Disk Space → Re-Check Disk → Still Full?"]
+    },
+    {
+      "hud": "Backup", "rest": 4, "focus": ["Backup Volumes", "Verify Backup", "Verify Backup"],
+      "title": "A backup counts only if it can be read back.",
+      "body": "<p>A script tars each Docker volume, checksums it and reads the archive back. The Code node then requires the archive to exist, be over 1 MiB and have a verified checksum. An exit code of 0 proves nothing on its own.</p>",
+      "code": "backupOk: Boolean(r.archive) && Number(r.bytes) > MIN_BYTES && r.checksum_verified === true,",
+      "check": ["node", "Backup Volumes → Verify Backup"]
+    },
+    {
+      "hud": "Backup gate", "rest": 6, "focus": ["Backup Good?", "Backup Good?", "Alert Backup Failure", "Run ETL Load"], "offset": [-0.6, 5.0, 5.8],
+      "title": "No verified backup, no data load.",
+      "body": "<p>If the backup failed, <code>#ops</code> is told and the ETL is skipped for the night. Loading data on a night with no backup is the wrong risk to take.</p>",
+      "check": ["node", "Backup Good? · false → Alert Backup Failure"]
+    },
+    {
+      "hud": "ETL", "rest": 7, "focus": ["Run ETL Load", "Run ETL Load", "Parse ETL Result"],
+      "title": "Re-running a failed night can't double-count.",
+      "body": "<p>A Python ETL loads the last 24 hours into Postgres. Event IDs are a hash of each event's fields, duplicates are dropped within the batch, and rows are upserted with <code>ON CONFLICT</code> in one transaction. Database credentials stay on the server, never in the command n8n logs.</p>",
+      "check": ["node", "Run ETL Load · etl_load.py --since-hours 24"]
+    },
+    {
+      "hud": "Quality checks", "rest": 10, "focus": ["Data Quality Checks", "Assert Data Quality", "Assert Data Quality", "Data Quality Passed?"],
+      "title": "SQL checks the load before anyone sees it.",
+      "body": "<p>The Postgres node counts today's rows, null keys and duplicate keys, and compares volume with the trailing seven days. No rows, any null or duplicate key, or less than 40% of the usual volume fails the load.</p>",
+      "code": "if (rows === 0)                              failures.push('no_rows_loaded');\nif (prior > 0 && rows < prior * 0.4)         failures.push(`volume_drop rows=${rows} vs avg=${prior}`);",
+      "check": ["node", "Data Quality Checks → Assert Data Quality"]
+    },
+    {
+      "hud": "Quarantine", "rest": 10, "focus": ["Data Quality Passed?", "Quarantine Bad Load", "Quarantine Bad Load", "Alert Data Quality Failure"], "offset": [-0.4, 5.0, 5.8],
+      "title": "A bad load is moved aside, not shown.",
+      "body": "<p>Failing rows move to <code>events_quarantine</code> with the reason, and <code>#ops</code> hears that the dashboards are still on yesterday's data. Stale but correct beats fresh but wrong.</p>",
+      "check": ["node", "Data Quality Passed? · false → Quarantine → Slack"]
+    },
+    {
+      "hud": "Digest", "rest": 12, "focus": ["Log Nightly Run", "Post Nightly Digest", "Post Nightly Digest"], "offset": [0.6, 4.6, 5.4],
+      "title": "A good night ends in one row and one message.",
+      "body": "<p>The run is logged to the Ops Log sheet with disk, memory, backup archive, rows loaded and the quality result. Then <code>#ops</code> gets a one-line digest.</p>",
+      "check": ["node", "Log Nightly Run → Post Nightly Digest"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 12, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "If a script returns garbage, engineering hears.",
+      "body": "<p>Parse failures throw on purpose. The Error Trigger posts the failing node, the error and the execution link to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 12, "focus": "all",
+      "title": "24 nodes, and every stage checks its own work.",
+      "body": "<p>Healthcheck, backup and load each verify their output before the next stage runs. The scripts report and the workflow decides, so every script can also be run by hand during an incident.</p>",
+      "check": ["file", "workflow.json + scripts/*.sh, etl_load.py"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Parse Health JSON", "Disk Under Pressure?", "Reclaim Disk Space", "Re-Check Disk", "Still Full?", "Disk Recovered"], "color": "ok", "from": 1.05, "to": 1.75, "keep": true },
+    { "path": ["Still Full?", "Escalate Disk Alert"], "color": "bad", "from": 1.55, "to": 1.85, "keep": true },
+    { "path": ["Backup Good?", "Alert Backup Failure"], "color": "bad", "from": 3.05, "to": 3.7, "keep": true },
+    { "path": ["Data Quality Passed?", "Quarantine Bad Load", "Alert Data Quality Failure"], "color": "bad", "from": 6.05, "to": 6.75, "keep": true },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 8.05, "to": 8.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["Healthcheck prints a traceback instead of JSON", "Parse Health JSON throws", "Error Trigger → engineering alert"],
+    ["Disk above threshold", "Reclaim → Re-Check → Still Full?", "Self-healed silently, or escalated if still full"],
+    ["Backup “succeeds” but is tiny or corrupt", "Verify Backup (&gt; 1 MiB + checksum)", "Backup alert. ETL skipped for the night"],
+    ["Overlapping rotated logs produce duplicate lines", "In-batch de-dup + <code>ON CONFLICT</code>", "No double counting. Re-run is safe"],
+    ["ETL loads 0 rows or a partial day", "SQL data-quality assertions", "Load quarantined, <code>#ops</code> alerted"],
+    ["Docker daemon unreachable during healthcheck", "<code>|| true</code> + <code>docker_reachable: false</code>", "Reported as data. The healthcheck still completes"]
+  ],
+  "notBuilt": [
+    "Monthly restore test into a scratch container, asserting row counts",
+    "Dead-letter replay that re-processes quarantined rows once the upstream is fixed",
+    "Metrics to a Prometheus exporter instead of Sheets",
+    "Off-site replication of verified archives, plus dbt or great_expectations tests"
+  ]
+}

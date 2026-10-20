@@ -35,3 +35,8 @@ cv/
 
 # e2e scratch output (workflow copies, renders, logs, exported node schemas)
 tests/e2e/.work/
+
+# local notes, keep out of public repo
+.claude/
+Claude.md
+docs/Claude.md

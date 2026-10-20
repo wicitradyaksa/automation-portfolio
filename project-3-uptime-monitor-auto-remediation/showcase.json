@@ -1,0 +1,80 @@
+{
+  "slug": "uptime-self-heal",
+  "workflow": "./workflow.json",
+  "title": "Uptime monitor & auto-remediation",
+  "description": "An n8n workflow that health-checks services every 5 minutes, restarts a container that stops answering, verifies the fix, and pages on-call only if it failed. Built by Dyaksa.",
+  "intro": "A scheduled n8n workflow that health-checks your services, restarts a container that has stopped answering, checks again, and only pages a person if the restart didn't work. Scroll to follow one failed check through all 15 nodes.",
+  "itemNoun": "health check",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-3-uptime-monitor-auto-remediation",
+  "route": ["Every 5 Minutes", "Set Target Services", "Health Check", "Is Unhealthy?", "Restart Container", "Wait 30s For Recovery", "Re-Check Health", "Still Down After Restart?", "Notify Self-Healed", "Log Self-Heal"],
+  "stations": [
+    {
+      "hud": "Service list", "rest": 1, "focus": ["Every 5 Minutes", "Set Target Services", "Set Target Services"],
+      "title": "One node lists everything it watches.",
+      "body": "<p>Every five minutes a Code node returns one item per service: its name, health URL and container. Adding a service is an edit to that one node, and n8n runs the rest of the graph once per item.</p>",
+      "code": "{ json: { service: 'api-gateway', url: 'http://api-gateway:8080/health', container: 'api-gateway' } },\n{ json: { service: 'worker-queue', url: 'http://worker-queue:8081/health', container: 'worker-queue' } },",
+      "check": ["node", "Every 5 Minutes → Set Target Services"]
+    },
+    {
+      "hud": "Health check", "rest": 3, "focus": ["Health Check", "Is Unhealthy?", "Is Unhealthy?", "Log Heartbeat (OK)"], "offset": [-0.6, 5.2, 5.8],
+      "title": "A timeout is a result, not a crash.",
+      "body": "<p>The check returns the full response and never errors, so a 503 is just a status code. A refused connection has no status code at all, which the IF reads as 0: unhealthy. A healthy answer is logged as an <code>up</code> heartbeat, so real uptime can be worked out later.</p>",
+      "code": "{{ $json.statusCode ?? 0 }}",
+      "check": ["node", "Is Unhealthy? · status ≠ 200"]
+    },
+    {
+      "hud": "Restart", "rest": 4, "focus": ["Restart Container", "Restart Container", "Is Unhealthy?"],
+      "title": "It can restart a container, and nothing else.",
+      "body": "<p>Restart Container posts to a Docker socket proxy that only allows restarts, so n8n never touches the Docker socket or a shell. A failed restart doesn't stop the run: the re-check still fails and the service is escalated.</p>",
+      "code": "{{ $env.DOCKER_API_URL }}/containers/{{ encodeURIComponent($('Set Target Services').item.json.container) }}/restart",
+      "check": ["node", "Restart Container · POST …/restart?t=10"]
+    },
+    {
+      "hud": "Wait + re-check", "rest": 6, "focus": ["Wait 30s For Recovery", "Re-Check Health"],
+      "title": "A restart isn't a fix until it's checked.",
+      "body": "<p>The workflow waits 30 seconds, then calls the same health URL again. Only that second answer decides what happens next.</p>",
+      "check": ["node", "Wait 30s For Recovery → Re-Check Health"]
+    },
+    {
+      "hud": "Self-healed", "rest": 9, "focus": ["Still Down After Restart?", "Notify Self-Healed", "Log Self-Heal"], "offset": [0.6, 4.6, 5.4],
+      "title": "Fixed by itself: a note, not a page.",
+      "body": "<p>If the re-check passes, <code>#incidents</code> gets a note that the service recovered after a restart, and the Incidents sheet gets a <code>self_healed</code> row. Nobody is woken up.</p>",
+      "check": ["node", "Still Down After Restart? · false → Notify Self-Healed"]
+    },
+    {
+      "hud": "Escalate", "rest": 9, "focus": ["Still Down After Restart?", "Escalate To On-Call", "Escalate To On-Call", "Log Incident"], "offset": [0.6, 4.8, 5.6],
+      "title": "Still down after a restart? Now a person is paged.",
+      "body": "<p>On-call is paged in <code>#incidents</code> only after the automatic fix has failed, and an <code>escalated</code> row is logged. Each run restarts once, then escalates. It never loops on a broken deployment.</p>",
+      "check": ["node", "Still Down After Restart? · true → Escalate → Log Incident"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 9, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "A silent monitor is worse than none.",
+      "body": "<p>If the monitor itself breaks, an Error Trigger posts the failed execution's error to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 9, "focus": "all",
+      "title": "15 nodes, three outcomes kept apart.",
+      "body": "<p>Heartbeat, self-heal and incident are separate log rows. That is what lets you report how many outages fixed themselves and how many needed a person, instead of a single count of alerts.</p>",
+      "check": ["file", "workflow.json · import into n8n v1.0+"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Is Unhealthy?", "Log Heartbeat (OK)"], "color": "ok", "from": 1.05, "to": 1.7, "keep": true },
+    { "path": ["Still Down After Restart?", "Escalate To On-Call", "Log Incident"], "color": "bad", "from": 5.05, "to": 5.8, "keep": true },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 6.05, "to": 6.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["Service returns non-200", "Is Unhealthy?", "Restart → wait 30 s → re-check"],
+    ["Service unreachable or the request times out", "HTTP Request <code>onError: continueRegularOutput</code>", "Treated as unhealthy, not a workflow crash"],
+    ["Restart fixes it", "Still Down After Restart? = false", "<code>#incidents</code> note and a Self-Heal log row, no page"],
+    ["Restart doesn't fix it", "Still Down After Restart? = true", "On-call escalation and an Incident log row"],
+    ["The monitor workflow itself fails", "Error Trigger → <code>#eng-alerts</code>", "Engineering alerted"]
+  ],
+  "notBuilt": [
+    "Restart budget: a max-restarts-per-hour guard with backoff, so a crash-looping service escalates quickly",
+    "Weekly SLO digest that computes uptime % and MTTR from the logs and posts it to Slack",
+    "Metrics export of run and incident events to a Prometheus exporter"
+  ]
+}

@@ -328,7 +328,7 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "raw": "={{JSON.stringify($json)}}",
+            "raw": "={{ JSON.stringify($('Lead Form Webhook').item.json.body) }}",
             "reason": "invalid_email",
             "receivedAt": "={{$now.toISO()}}"
           },

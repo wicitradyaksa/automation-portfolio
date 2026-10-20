@@ -1,0 +1,93 @@
+{
+  "slug": "dco-engine",
+  "workflow": "./workflow.json",
+  "title": "DCO engine: scale, pause or hold",
+  "description": "An n8n workflow that joins ad spend to affiliate revenue, tests each creative variant for significance, and only then scales, pauses or holds its budget. Built by Dyaksa.",
+  "intro": "A scheduled n8n workflow that joins ad spend to affiliate revenue, tests every creative variant for statistical significance, and only then scales, pauses or holds its budget. Scroll to follow one variant through all 19 nodes.",
+  "itemNoun": "variant",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-6-dco-engine",
+  "route": ["Every 6 Hours", "Fetch Ad Platform Insights", "Wait For All Pulls", "Compute Variant Metrics", "Enough Data To Decide?", "Run Significance Test", "Parse Test Result", "Route Decision", "Pause Losing Ad", "Request Replacement Creative", "Log Decision"],
+  "stations": [
+    {
+      "hud": "Three pulls", "rest": 0, "focus": ["Every 6 Hours", "Fetch Ad Platform Insights", "Fetch Ad Set Budgets", "Fetch Affiliate Conversions"], "offset": [-1.0, 5.4, 6.2],
+      "title": "Spend, budgets and revenue, pulled together.",
+      "body": "<p>Every 6 hours, three API calls start from one trigger: ad spend, ad-set budgets and affiliate revenue. They page through results and retry four times, 10 seconds apart, because a partial pull would quietly understate spend. A Merge waits for all three.</p>",
+      "check": ["node", "Every 6 Hours → 3 × HTTP Request → Merge"]
+    },
+    {
+      "hud": "Join", "rest": 3, "focus": ["Wait For All Pulls", "Compute Variant Metrics", "Compute Variant Metrics"],
+      "title": "Ad clicks are joined to the money they made.",
+      "body": "<p>Ad platforms can't see affiliate revenue. A Code node joins spend to revenue on the sub-ID carried through the click, rolls ads up per creative variant, and works out CTR, CVR, CPA, ROAS and EPC.</p>",
+      "code": "const rev = revenueBySub[String(r.ad_id)] || { conversions: 0, revenue: 0 };\nconst roas = v.spend ? v.revenue / v.spend : 0;",
+      "check": ["node", "Compute Variant Metrics · ad_id ↔ sub_id"]
+    },
+    {
+      "hud": "Volume floor", "rest": 4, "focus": ["Enough Data To Decide?", "Enough Data To Decide?", "Log Still Learning"], "offset": [-0.6, 5.2, 5.8],
+      "title": "Too little data means no decision.",
+      "body": "<p>A variant needs enough impressions and at least 100 clicks before anything changes. Below that it is logged as <code>insufficient_data</code> and left alone. Noise is not a signal.</p>",
+      "code": "hasEnoughData: v.impressions >= MIN_IMPRESSIONS && v.clicks >= 100,",
+      "check": ["node", "Enough Data To Decide? · false → Log Still Learning"]
+    },
+    {
+      "hud": "Significance", "rest": 6, "focus": ["Run Significance Test", "Run Significance Test", "Parse Test Result"],
+      "title": "A big lift still has to be real.",
+      "body": "<p>All variants go to a Python script once per cycle: a two-proportion z-test with a Bonferroni correction for the number of variants. In the repo's fixture, a +40% lift at p = 0.0194 is held, because the corrected threshold is 0.0167.</p>",
+      "check": ["node", "Run Significance Test · ab_significance.py · execute once"]
+    },
+    {
+      "hud": "Decide", "rest": 7, "focus": ["Route Decision", "Route Decision", "Scale Winner Budget", "Hold — No Action"], "offset": [0.2, 5.4, 6.0],
+      "title": "Scale, pause or hold, with guard rails.",
+      "body": "<p>A Switch routes each variant. Scaling steps the budget by a capped multiplier and becomes a hold if the current budget can't be read, because 0 × 1.2 would set it to zero. A variant under 70% of target ROAS is paused on economics alone.</p>",
+      "code": "if (v.decision === 'scale' && !(Number(v.currentBudget) > 0)) {",
+      "check": ["node", "Route Decision · scale / pause / hold"]
+    },
+    {
+      "hud": "Pause + refill", "rest": 10, "focus": ["Pause Losing Ad", "Request Replacement Creative", "Log Decision"], "offset": [-0.6, 4.6, 5.4],
+      "title": "A paused ad asks for its own replacement.",
+      "body": "<p>The losing ad is paused, and a new brief with the reason is appended to the sheet the creative factory reads at 06:00. Every decision, whichever branch it took, lands in the DCO Decision Log.</p>",
+      "check": ["node", "Pause Losing Ad → Request Replacement Creative → Log Decision"]
+    },
+    {
+      "hud": "Report", "rest": 10, "focus": ["Parse Test Result", "Post Buying Report", "Post Buying Report"], "offset": [-0.8, 5.0, 5.6],
+      "title": "One buying report per cycle.",
+      "body": "<p>The Slack report hangs off Parse Test Result and runs once. Hung off Log Decision, it would post once per branch. The end-to-end test caught exactly that.</p>",
+      "check": ["node", "Parse Test Result → Post Buying Report · execute once"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 10, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "A failed cycle reaches a person, not a budget.",
+      "body": "<p>Any failed execution goes to an Error Trigger, which posts the failing node, the error and the execution link to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 10, "focus": "all",
+      "title": "19 nodes, two places it refuses to act.",
+      "body": "<p>The volume floor and the significance test are where it says no. Scaling too slowly costs a few hours of upside. Scaling a false winner costs real money. The riskiest logic is a script you can run against a fixture from a terminal.</p>",
+      "check": ["file", "workflow.json + scripts/ab_significance.py"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Every 6 Hours", "Fetch Ad Set Budgets", "Wait For All Pulls"], "color": "signal", "from": 0.05, "to": 0.85, "keep": true },
+    { "path": ["Every 6 Hours", "Fetch Affiliate Conversions", "Wait For All Pulls"], "color": "signal", "from": 0.05, "to": 0.85, "keep": true },
+    { "path": ["Enough Data To Decide?", "Log Still Learning"], "color": "bad", "from": 2.05, "to": 2.7, "keep": true },
+    { "path": ["Route Decision", "Scale Winner Budget", "Log Decision"], "color": "ok", "from": 4.05, "to": 4.75, "keep": true },
+    { "path": ["Route Decision", "Hold — No Action", "Log Decision"], "color": "dup", "from": 4.1, "to": 4.8 },
+    { "path": ["Parse Test Result", "Post Buying Report"], "color": "ok", "from": 6.05, "to": 6.6, "keep": true },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 7.05, "to": 7.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["API rate limit or transient 5xx", "Node-level Retry On Fail", "4 attempts, 10 s apart, on the ingestion calls"],
+    ["Variant with too little data", "Enough Data To Decide?", "Logged as <code>insufficient_data</code>, no action"],
+    ["Scale decision but current budget unknown", "Guard in Parse Test Result", "Downgraded to <code>hold</code> with the reason logged"],
+    ["Large lift that isn't significant after correction", "<code>ab_significance.py</code> → hold", "No budget change this cycle"],
+    ["Variant burning money", "ROAS floor in the decision bands", "Paused and a replacement brief queued"],
+    ["Unexpected failure", "Error Trigger → Slack", "Engineering alerted with the failed execution"]
+  ],
+  "notBuilt": [
+    "OAuth2 platform credentials (Meta, Google Ads) instead of static tokens",
+    "Retry-After-aware pagination that honours the server's back-off header",
+    "Bayesian decisions with Beta-Binomial posteriors for the 6-hour cycle",
+    "Bandit allocation and creative-fatigue detection from CTR decay",
+    "Holdout groups, so the engine's contribution is measured rather than assumed"
+  ]
+}

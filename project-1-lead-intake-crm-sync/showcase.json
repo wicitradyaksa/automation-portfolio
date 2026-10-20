@@ -1,0 +1,80 @@
+{
+  "slug": "lead-intake",
+  "workflow": "./workflow.json",
+  "title": "Lead intake & CRM sync",
+  "description": "An n8n workflow that takes a lead from any form, cleans it, de-duplicates it, tells sales and replies to the prospect, in one execution. Built by Dyaksa.",
+  "intro": "An n8n workflow that takes a lead from any form, cleans it, checks it isn't already in the CRM, tells sales and replies to the prospect, all in one execution. Scroll to follow one lead through all 14 nodes.",
+  "itemNoun": "lead",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-1-lead-intake-crm-sync",
+  "route": ["Lead Form Webhook", "Normalize & Validate", "Valid Lead?", "Check For Duplicate", "Already In CRM?", "Create New CRM Row", "Notify Sales (Slack)", "Send Confirmation Email", "Respond 200 OK"],
+  "stations": [
+    {
+      "hud": "Webhook", "rest": 0, "focus": ["Lead Form Webhook", "Lead Form Webhook", "Normalize & Validate"],
+      "title": "One door for every form.",
+      "body": "<p>The website form, campaign landing pages and partner APIs all POST to one webhook. They don't agree on field names.</p>",
+      "code": "{ \"first_name\": \"Ada\", \"email\": \" Ada@Example.com \" }\n{ \"firstName\": \"Ada\", \"email\": \"ada@example.com\" }",
+      "check": ["node", "Lead Form Webhook · POST /lead-intake"]
+    },
+    {
+      "hud": "Normalize", "rest": 1, "focus": ["Normalize & Validate"],
+      "title": "Make every lead look the same.",
+      "body": "<p>A Code node maps field-name variants to one schema, trims and lower-cases the email, and checks it before anything is written.</p>",
+      "code": "const email = (body.email || '').trim().toLowerCase();\nconst emailValid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);",
+      "check": ["node", "Normalize & Validate"]
+    },
+    {
+      "hud": "Validate", "rest": 2, "focus": ["Valid Lead?", "Valid Lead?", "Log Invalid Submission"], "offset": [-0.8, 5.4, 5.8],
+      "title": "Bad input never reaches the CRM.",
+      "body": "<p>An invalid lead goes to a Rejected Submissions sheet, and the form gets a 400 with the reason. Nothing disappears, and nothing dirty gets written.</p>",
+      "check": ["node", "Valid Lead? · false → Log Invalid → 400"]
+    },
+    {
+      "hud": "De-duplicate", "rest": 4, "focus": ["Already In CRM?", "Already In CRM?", "Update Existing Row", "Create New CRM Row"], "offset": [0.6, 5.4, 5.8],
+      "title": "Same person twice is still one contact.",
+      "body": "<p>The lookup keys on email. <em>Always Output Data</em> is on, so a lead with no match still reaches the IF and takes the create branch instead of quietly ending the run. A repeat updates <code>lastTouchedAt</code> and bumps <code>touchCount</code>.</p>",
+      "check": ["node", "Already In CRM? · true → touchCount++"]
+    },
+    {
+      "hud": "Write + Slack", "rest": 6, "focus": ["Create New CRM Row", "Notify Sales (Slack)"], "offset": [-1.0, 4.6, 5.4],
+      "title": "Sales hears about it straight away.",
+      "body": "<p>The row is written, then Slack. Every node after an API call reads the lead from the Code node, because an API node's output is its response, not the lead.</p>",
+      "code": "$('Normalize & Validate').item.json",
+      "check": ["node", "Create New CRM Row → Notify Sales"]
+    },
+    {
+      "hud": "Reply + 200", "rest": 8, "focus": ["Send Confirmation Email", "Respond 200 OK"], "offset": [0.9, 4.4, 5.2],
+      "title": "The prospect gets a reply. The form gets an answer.",
+      "body": "<p>A confirmation email goes out, then Respond to Webhook returns 200 with JSON in the same execution, so the form can show the right message.</p>",
+      "check": ["node", "Send Confirmation Email → 200 OK"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 8, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "When the workflow itself fails, someone hears.",
+      "body": "<p>An Error Trigger catches any failed execution and posts it to <code>#eng-alerts</code>. The lead can still be recovered from n8n's execution history. A dropped lead nobody notices is the exact problem this workflow exists to prevent.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 8, "focus": "all",
+      "title": "14 nodes, one execution.",
+      "body": "<p>Every outcome, whether new, duplicate, invalid or failed, ends in a log row or an alert. The CRM is a Google Sheet on purpose: swapping in HubSpot or Pipedrive changes the sink, not the graph.</p>",
+      "check": ["file", "workflow.json · import into n8n v1.0+"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Valid Lead?", "Log Invalid Submission", "Respond 400 Bad Request"], "color": "bad", "from": 2.05, "to": 2.8, "keep": true },
+    { "path": ["Already In CRM?", "Update Existing Row", "Notify Sales (Slack)"], "color": "dup", "from": 3.05, "to": 3.85 },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 5.35, "to": 5.95, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["Malformed or missing email", "Normalize &amp; Validate → Valid Lead?", "Logged to Rejected Submissions; the form gets a 400 with the reason"],
+    ["Same person submits twice, or from two forms", "Check For Duplicate → Already In CRM?", "Existing row updated, <code>touchCount</code> up by one, no duplicate contact"],
+    ["Field names differ between forms", "Code node field mapping", "Normalized to one schema before any write"],
+    ["Slack, email or Sheets down mid-run", "Error Trigger → Alert Engineering", "Engineering alerted with the failed execution; the lead is recoverable from execution history"]
+  ],
+  "notBuilt": [
+    "Retry sub-workflow with exponential backoff around Slack and email",
+    "Dead-letter table for failed payloads, with a replay workflow",
+    "HubSpot or Pipedrive over OAuth2 in place of the Sheets CRM",
+    "Spam protection: CAPTCHA and per-IP rate limiting before the webhook"
+  ]
+}

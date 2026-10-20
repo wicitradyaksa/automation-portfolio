@@ -1,0 +1,90 @@
+{
+  "slug": "creative-factory",
+  "workflow": "./workflow.json",
+  "title": "Generative creative factory",
+  "description": "An n8n workflow that turns queued briefs in a Google Sheet into ComfyUI / SDXL generations and placement-ready ad creatives, with a hard give-up on a stuck GPU. Built by Dyaksa.",
+  "intro": "An n8n workflow that reads creative briefs from a spreadsheet, builds the ComfyUI graph itself, waits for the GPU, and exports finished ad placements. Nobody opens the node editor. Scroll to follow one brief through all 23 nodes.",
+  "itemNoun": "brief",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-5-generative-creative-factory",
+  "route": ["Every Morning 06:00", "Read Creative Briefs", "Any Briefs Queued?", "One Brief At A Time", "Build ComfyUI Graph", "Queue On ComfyUI", "Wait 20s", "Poll Generation History", "Check Completion", "Generation Done?", "Post-Process Creatives", "Parse Creative Output", "Mark Brief Rendered", "Has Master Video?", "Hand Off To Render Farm", "Post Creative Digest", "One Brief At A Time", "Next Brief"],
+  "stations": [
+    {
+      "hud": "Brief queue", "rest": 2, "focus": ["Every Morning 06:00", "Read Creative Briefs", "Any Briefs Queued?", "Any Briefs Queued?"],
+      "title": "The spreadsheet is the interface.",
+      "body": "<p>At 06:00 the workflow reads every brief marked <code>queued</code> from the sheet marketing already uses. <em>Always Output Data</em> is on, so an empty queue still reaches the IF and ends cleanly at a No Operation.</p>",
+      "check": ["node", "Read Creative Briefs · status = queued"]
+    },
+    {
+      "hud": "Build graph", "rest": 4, "focus": ["One Brief At A Time", "Build ComfyUI Graph", "Build ComfyUI Graph"],
+      "title": "Nobody touches the ComfyUI node editor.",
+      "body": "<p>One brief at a time, a Code node writes ComfyUI's API-format graph from the row: checkpoint, prompts, image size, sampler, decode and save. Briefs run one by one because GPU inference is serial anyway.</p>",
+      "code": "'5': { class_type: 'KSampler',\n       inputs: { seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras',\n                 denoise: 1, model: ['1', 0], positive: ['2', 0],\n                 negative: ['3', 0], latent_image: ['4', 0] } },",
+      "check": ["node", "One Brief At A Time → Build ComfyUI Graph"]
+    },
+    {
+      "hud": "Queue", "rest": 5, "focus": ["Queue On ComfyUI", "Queue On ComfyUI", "Wait 20s"],
+      "title": "A brief outage doesn't lose the brief.",
+      "body": "<p>The graph is posted to <code>/prompt</code> with Retry On Fail, three tries 5 seconds apart. ComfyUI answers with a prompt ID, not images, so the workflow has to come back for them.</p>",
+      "check": ["node", "Queue On ComfyUI · POST /prompt · retry 3 × 5 s"]
+    },
+    {
+      "hud": "Poll", "rest": 9, "focus": ["Wait 20s", "Poll Generation History", "Check Completion", "Generation Done?"],
+      "title": "It checks every 20 seconds and keeps time.",
+      "body": "<p>The loop polls <code>/history</code> every 20 seconds. Elapsed time is measured from when the brief started, not counted on the item, because each poll response replaces <code>$json</code> and a counter would reset every loop.</p>",
+      "code": "const MAX_WAIT_MS = 5 * 60 * 1000, POLL_MS = 20 * 1000;\nconst elapsed = Date.now() - new Date(ctx.startedAt).getTime();",
+      "check": ["node", "Wait 20s → Poll → Check Completion"]
+    },
+    {
+      "hud": "Give up", "rest": 9, "focus": ["Gave Up Waiting?", "Gave Up Waiting?", "Mark Brief Failed", "Alert GPU Queue Stuck"], "offset": [-0.4, 5.4, 6.0],
+      "title": "After five minutes, it gives up loudly.",
+      "body": "<p>A stuck GPU queue doesn't hold the run forever. The brief is marked <code>failed_timeout</code> in the sheet, <code>#creative-ops</code> is told how long it waited, and the next brief starts.</p>",
+      "check": ["node", "Gave Up Waiting? · true → Mark Brief Failed → Slack"]
+    },
+    {
+      "hud": "Post-process", "rest": 12, "focus": ["Post-Process Creatives", "Parse Creative Output", "Mark Brief Rendered"],
+      "title": "Raw images become placements, without the prompt inside.",
+      "body": "<p>A Python script exports 1:1, 4:5, 9:16 and 1.91:1 placements and re-saves them as progressive JPEG, which drops the PNG text holding the prompt graph. The seed goes back to the sheet, so a winning look can be regenerated later.</p>",
+      "check": ["node", "Post-Process Creatives · postprocess_creative.py"]
+    },
+    {
+      "hud": "Hand-off", "rest": 15, "focus": ["Has Master Video?", "Hand Off To Render Farm", "Post Creative Digest"], "offset": [-0.6, 4.8, 5.6],
+      "title": "Briefs with a video go straight to the render farm.",
+      "body": "<p>If the row names a master video, the workflow posts it to the render farm's webhook: two workflows with a clean contract instead of one doing both jobs. Either way, <code>#creative-ops</code> gets a digest with the count and the seed.</p>",
+      "check": ["node", "Has Master Video? → Hand Off To Render Farm"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 17, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "An unexpected crash still reaches a person.",
+      "body": "<p>Timeouts take the failure branch. Anything else goes to an Error Trigger, which posts the failing node, the error and the execution link to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 17, "focus": "all",
+      "title": "23 nodes and two loops.",
+      "body": "<p>The outer loop takes one brief at a time. The inner loop polls until the images arrive or five minutes pass. Every brief ends as <code>rendered</code> or <code>failed_timeout</code> in the sheet it came from.</p>",
+      "check": ["file", "workflow.json + scripts/postprocess_creative.py"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Any Briefs Queued?", "Nothing To Render"], "color": "ok", "from": 0.05, "to": 0.6, "keep": true },
+    { "path": ["Generation Done?", "Gave Up Waiting?", "Wait 20s"], "color": "dup", "from": 3.05, "to": 3.8 },
+    { "path": ["Generation Done?", "Gave Up Waiting?", "Mark Brief Failed", "Alert GPU Queue Stuck", "One Brief At A Time"], "color": "bad", "from": 4.05, "to": 4.85, "keep": true },
+    { "path": ["Has Master Video?", "Post Creative Digest"], "color": "dup", "from": 6.05, "to": 6.6 },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 7.05, "to": 7.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["GPU queue stuck (for example out of memory)", "Elapsed-time check → Gave Up Waiting?", "After 5 minutes: brief marked <code>failed_timeout</code>, Slack alert, next brief continues"],
+    ["Brief has no master video", "Has Master Video?", "Creatives are logged and announced. No hand-off request is sent"],
+    ["ComfyUI briefly unreachable on submit", "Node-level Retry On Fail", "3 attempts, 5 s apart"],
+    ["<code>/view</code> returns an error page instead of an image", "Size floor in <code>postprocess_creative.py</code>", "Raised and reported per image. The other images still process"],
+    ["No briefs queued", "Read Creative Briefs (<em>Always Output Data</em>) → Any Briefs Queued?", "No Operation, and the run ends cleanly"],
+    ["Unexpected workflow failure", "Error Trigger → Slack", "Engineering alerted"]
+  ],
+  "notBuilt": [
+    "LLM prompt expansion from a one-line brief into structured positive and negative prompts",
+    "Vector memory of prompts behind winning variants, retrieved as examples",
+    "Brand-safety gate: a CLIP classifier pass for stray text, watermarks and malformed hands",
+    "WebSocket progress instead of 20-second polling",
+    "Re-queue a timed-out brief once before marking it failed"
+  ]
+}

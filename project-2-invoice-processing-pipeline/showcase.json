@@ -1,0 +1,83 @@
+{
+  "slug": "invoice-intake",
+  "workflow": "./workflow.json",
+  "title": "Invoice intake & approval routing",
+  "description": "An n8n workflow that reads invoice PDFs from an accounts-payable inbox and routes each one to the ledger, a manager or a person for review. Built by Dyaksa.",
+  "intro": "An n8n workflow that watches an accounts-payable inbox, reads each invoice PDF and routes it: to the ledger, to a manager for approval, or to a person when it can't be read. Scroll to follow one invoice through all 14 nodes.",
+  "itemNoun": "invoice",
+  "repoUrl": "https://github.com/wicitradyaksa/automation-portfolio/tree/main/project-2-invoice-processing-pipeline",
+  "route": ["Watch Invoices Inbox", "Has PDF Attachment?", "Extract PDF Text", "Parse Invoice Fields", "Fields Complete?", "Needs Manager Approval?", "Log To Approval Queue", "Alert Finance Manager"],
+  "stations": [
+    {
+      "hud": "Inbox", "rest": 0, "focus": ["Watch Invoices Inbox", "Watch Invoices Inbox", "Has PDF Attachment?"],
+      "title": "It starts in the inbox finance already uses.",
+      "body": "<p>An IMAP trigger watches the accounts-payable mailbox, downloads attachments and marks each message read, so the same invoice isn't picked up twice.</p>",
+      "check": ["node", "Watch Invoices Inbox · INBOX, mark as read"]
+    },
+    {
+      "hud": "PDF check", "rest": 1, "focus": ["Has PDF Attachment?", "Has PDF Attachment?", "Log Non-Invoice Email"], "offset": [-0.8, 5.0, 5.6],
+      "title": "Replies and newsletters are ignored.",
+      "body": "<p>The first attachment's MIME type has to contain <code>pdf</code>. A reply, a newsletter or an image ends at a No Operation node, and nothing is written anywhere.</p>",
+      "code": "{{ $binary.attachment_0?.mimeType ?? '' }}",
+      "check": ["node", "Has PDF Attachment? · false → No Operation"]
+    },
+    {
+      "hud": "Parse", "rest": 3, "focus": ["Extract PDF Text", "Parse Invoice Fields"],
+      "title": "Readable rules pull out what someone used to type.",
+      "body": "<p>Extract From File gets the PDF's text. A Code node finds the invoice number, total, due date and vendor with plain regex rules, and strips thousands separators so <code>1,240.50</code> compares as a number.</p>",
+      "code": "const amountMatch = text.match(/total\\s*(?:due)?\\s*[:\\$]?\\s*([0-9,]+\\.\\d{2})/i);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;",
+      "check": ["node", "Extract PDF Text → Parse Invoice Fields"]
+    },
+    {
+      "hud": "Confidence gate", "rest": 4, "focus": ["Fields Complete?", "Fields Complete?", "Log To Needs Review", "Alert Finance Ops"], "offset": [-0.6, 5.4, 5.8],
+      "title": "If it can't read an invoice, it says so.",
+      "body": "<p>An invoice counts as complete only when the number, amount and due date were all found. Anything less goes to a Needs Review sheet and <code>#finance-ops</code> hears about it. A half-filled row never reaches the ledger.</p>",
+      "code": "const complete = Boolean(invoiceNumber && amount && dueDateMatch);",
+      "check": ["node", "Fields Complete? · false → Needs Review → Slack"]
+    },
+    {
+      "hud": "Approval rule", "rest": 5, "focus": ["Needs Manager Approval?", "Needs Manager Approval?", "Log To Approval Queue", "Log To Approved Ledger"], "offset": [0.4, 5.4, 5.8],
+      "title": "The approval policy is one number.",
+      "body": "<p>Amounts over 1,000 go to a manager. The threshold lives in one IF node, so changing the policy is a one-field edit finance can read. Anything under it is logged to the ledger as <code>auto_approved</code>.</p>",
+      "check": ["node", "Needs Manager Approval? · amount > 1000"]
+    },
+    {
+      "hud": "Queue + Slack", "rest": 7, "focus": ["Log To Approval Queue", "Alert Finance Manager"], "offset": [-1.0, 4.6, 5.4],
+      "title": "The manager gets the details, not a forwarded email.",
+      "body": "<p>The invoice is appended to Pending Approval as <code>awaiting_approval</code>, then <code>#finance-approval</code> gets the number, vendor, amount and due date. Ledger, approval and review are separate sheets, so each queue can be worked and audited on its own.</p>",
+      "check": ["node", "Log To Approval Queue → Alert Finance Manager"]
+    },
+    {
+      "hud": "Error Trigger", "rest": 7, "focus": ["Workflow Error", "Alert Engineering (Slack)", "Alert Engineering (Slack)"], "offset": [-1.0, 4.4, 5.0],
+      "title": "When the workflow itself fails, someone hears.",
+      "body": "<p>An Error Trigger catches any failed execution, whether IMAP, Sheets or Slack broke, and posts the error message to <code>#eng-alerts</code>.</p>",
+      "check": ["node", "Workflow Error → Alert Engineering"]
+    },
+    {
+      "hud": "Whole graph", "rest": 7, "focus": "all",
+      "title": "14 nodes, three queues.",
+      "body": "<p>Every invoice ends in exactly one place: the ledger, the approval queue or the review queue. The regex parser is swappable on purpose: replace it with an LLM extractor and every node after it stays the same, because the JSON it hands on doesn't change.</p>",
+      "check": ["file", "workflow.json · import into n8n v1.0+"]
+    }
+  ],
+  "ghosts": [
+    { "path": ["Has PDF Attachment?", "Log Non-Invoice Email"], "color": "bad", "from": 1.05, "to": 1.7, "keep": true },
+    { "path": ["Fields Complete?", "Log To Needs Review", "Alert Finance Ops"], "color": "bad", "from": 3.05, "to": 3.8, "keep": true },
+    { "path": ["Needs Manager Approval?", "Log To Approved Ledger"], "color": "ok", "from": 4.05, "to": 4.75, "keep": true },
+    { "path": ["Workflow Error", "Alert Engineering (Slack)"], "color": "bad", "from": 6.05, "to": 6.7, "keep": true, "lightStart": true }
+  ],
+  "edgeCases": [
+    ["Email with no PDF (reply, newsletter, image attachment)", "<code>Has PDF Attachment?</code> checks the attachment's MIME type", "Ignored via No Operation, nothing written"],
+    ["PDF where a required field can't be found", "Parse Invoice Fields → Fields Complete?", "Logged to Needs Review and <code>#finance-ops</code> pinged. Never guessed"],
+    ["Amount above the threshold", "Needs Manager Approval?", "Logged to Pending Approval and <code>#finance-approval</code> pinged"],
+    ["Amount written with thousands separators (<code>1,240.50</code>)", "Code node strips <code>,</code> before <code>parseFloat</code>", "Correct numeric comparison"],
+    ["IMAP, Sheets or Slack failure", "Error Trigger → Alert Engineering", "Engineering alerted with the failed execution"]
+  ],
+  "notBuilt": [
+    "LLM extraction that returns a confidence score, with low scores sent to Needs Review",
+    "Vendor layout templates from a vector store as examples for the extractor",
+    "Duplicate-invoice detection on vendor plus invoice number before the ledger",
+    "Audit archive of the original PDF in Drive or S3, linked from the ledger row",
+    "Retry sub-workflow and dead-letter table for transient Sheets or Slack failures"
+  ]
+}
